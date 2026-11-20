@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Võ Lâm Yêu Nước</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="demo-banner" class="hidden">Chế độ thử: dữ liệu lưu trên trình duyệt này. Điền cấu hình Firebase vào js/config.js để chơi thật.</div>
+
+<section id="scr-loading" class="screen center"><div class="logo">Võ Lâm Yêu Nước</div><div class="muted">Đang tải...</div></section>
+
+<section id="scr-login" class="screen center hidden">
+  <form id="login-form" class="box form">
+    <div class="logo">Võ Lâm Yêu Nước</div>
+    <label>Tên đăng nhập<input id="login-user" autocomplete="username" required></label>
+    <label>Mật khẩu<input id="login-pass" type="password" autocomplete="current-password"></label>
+    <div class="bad" id="login-err"></div>
+    <button class="btn" id="login-btn" type="submit">Đăng nhập</button>
+    <div class="muted small" id="login-note">Tài khoản do admin cấp.</div>
+  </form>
+</section>
+
+<section id="scr-create" class="screen center hidden">
+  <form id="create-form" class="box form wide-box">
+    <div class="logo">Tạo nhân vật</div>
+    <label>Tên nhân vật<input id="c-name" maxlength="16" required></label>
+    <div class="lbl-t">Giới tính</div>
+    <div class="cards" id="c-gender"></div>
+    <div class="lbl-t">Môn phái</div>
+    <div class="cards five" id="c-sect"></div>
+    <div class="bad" id="create-err"></div>
+    <button class="btn" type="submit">Nhập giang hồ</button>
+  </form>
+</section>
+
+<section id="scr-main" class="screen hidden">
+  <header class="topbar">
+    <div class="lv" id="hd-lv">Lv1</div>
+    <div class="hd-info">
+      <div id="hd-name"></div>
+      <div class="expbar"><i id="hd-exp"></i></div>
+      <div class="small muted"><span id="hd-exptext"></span> · <span id="hd-gold" class="gold"></span></div>
+    </div>
+    <nav class="tabs">
+      <button data-tab="idle">Treo máy</button>
+      <button data-tab="bag" id="tab-btn-bag">Túi đồ</button>
+      <button data-tab="skill" id="tab-btn-skill">Kỹ năng</button>
+      <button data-tab="admin" id="tab-btn-admin" class="hidden">Admin</button>
+      <button id="btn-pass">Đổi mật khẩu</button>
+      <button id="btn-logout">Đăng xuất</button>
+    </nav>
+  </header>
+
+  <div id="tab-idle" class="tab cols">
+    <div class="panel" id="idle-left"></div>
+    <div class="panel col-mid">
+      <div id="idle-status"></div>
+      <div id="idle-log" class="log"></div>
+    </div>
+    <div class="panel" id="idle-right"></div>
+  </div>
+
+  <div id="tab-bag" class="tab cols hidden">
+    <div class="panel" id="bag-left"></div>
+    <div class="panel col-mid">
+      <div class="sk-head"><span class="panel-t">Túi đồ</span>
+        <span><label class="chk"><input type="checkbox" id="bag-auto"> Tự bán đồ Thường</label>
+        <button class="btn ghost small-btn" id="bag-sellall">Bán hết đồ Thường</button></span></div>
+      <div class="bag-grid" id="bag-grid"></div>
+    </div>
+    <div class="panel" id="bag-detail"></div>
+  </div>
+
+  <div id="tab-skill" class="tab hidden"></div>
+  <div id="tab-admin" class="tab hidden"></div>
+</section>
+
+<section id="scr-battle" class="screen battle hidden"><canvas id="cv"></canvas></section>
+
+<div id="modal" class="modal hidden"><div class="modal-box" id="modal-box"></div></div>
+<div id="toast"></div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
