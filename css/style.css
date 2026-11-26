@@ -183,3 +183,50 @@ input:focus { outline: none; border-color: #f2c230; }
 .qty-in { width: 64px; padding: 4px 6px; }
 .bk-row { display: flex; gap: 12px; align-items: flex-start; padding: 10px 4px; border-bottom: 1px solid #2a2d38; }
 .modal-box { width: 520px; }
+
+/* ===== Bản 2.1 ===== */
+/* viền độ hiếm: xanh nhạt và sáng hơn, tím đậm hơn, Hoàng Kim có vệt sáng xoay quanh ô */
+.ico.rar1 { border-color: #8cc8ff !important; background: #1e2a38; box-shadow: inset 0 0 6px rgba(140, 200, 255, .35); }
+.ico.rar2 { border-color: #6a2fc0 !important; background: #241a33; }
+.ico.rargold { border-color: #8a6a10 !important; isolation: isolate; }
+.ico.rargold::before { content: ""; position: absolute; inset: -60%; z-index: -2;
+  background: conic-gradient(transparent 0 70%, #fff3b0 82%, #ffd23f 88%, transparent 96%); animation: vlspin 2.4s linear infinite; }
+.ico.rargold::after { content: ""; position: absolute; inset: 2px; z-index: -1; background: #1a1c22; border-radius: 4px; }
+@keyframes vlspin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .ico.rargold::before { animation: none; } }
+.ico .lk { position: absolute; left: 2px; top: 2px; width: 13px; height: 13px; line-height: 0; filter: drop-shadow(0 0 2px #000); }
+.ico .lk svg { width: 13px; height: 13px; }
+.qs1 { color: #8cc8ff !important; } .qs2 { color: #c39af5 !important; }
+.hint { background: #2a2410; border: 1px solid #5a4a18; color: #ffe08a; border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; font-size: 13px; line-height: 2; }
+/* bí kíp trong tab Kỹ năng */
+.bk-cols { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 12px; margin-top: 12px; }
+.soon { border: 1.5px dashed #3a3f50; border-radius: 8px; padding: 26px 10px; text-align: center; color: #777; }
+@media (max-width: 900px) { .bk-cols { grid-template-columns: minmax(0, 1fr); } }
+/* cửa hàng dạng lưới ô ngang */
+.shop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 10px; }
+.shop-card { background: #1c1e26; border: 1px solid #2e3140; border-radius: 10px; padding: 12px 10px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.shop-card:hover { border-color: #4a4f66; }
+.sc-name { font-weight: 600; color: #fff; margin-top: 4px; }
+.sc-desc { font-size: 12px; color: #999; min-height: 34px; line-height: 1.4; }
+.sc-have { font-size: 12px; color: #8a8f9f; }
+.sc-price { color: #f2c230; font-weight: 600; }
+.sc-buy { display: flex; gap: 6px; align-items: center; margin-top: 4px; }
+.sc-buy .small-btn { margin-left: 0; }
+.sc-buy .qty-in { width: 56px; }
+/* chợ */
+.chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 6px 0 10px; }
+.chip { background: #2e3140; color: #ccc; border: 1px solid transparent; border-radius: 16px; padding: 4px 12px; font-size: 12px; }
+.chip.on { border-color: #f2c230; color: #f2c230; }
+.mk-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 8px; }
+.mk-row { display: flex; align-items: center; gap: 10px; background: #1c1e26; border: 1px solid #2e3140; border-radius: 10px; padding: 8px 10px; }
+.mk-main { flex: 1; min-width: 0; }
+.mk-price { color: #f2c230; font-weight: 600; white-space: nowrap; }
+.mk-price small { color: #a88a30; font-weight: 400; }
+/* hộp chọn điều khiển */
+.opt { display: flex; gap: 10px; align-items: flex-start; background: #1c1e26; border: 1px solid #2e3140; border-radius: 8px; padding: 8px 10px; margin: 6px 0; cursor: pointer; }
+.opt.on { border-color: #f2c230; }
+.opt input { margin-top: 4px; }
+.panel.wide.xl { max-width: 1320px; }
+.sc-kind { font-size: 11px; color: #ffe08a; align-self: stretch; text-align: left; margin-bottom: 2px; }
+.bk-cols { max-width: 1100px; margin-left: auto; margin-right: auto; }
+.shop-grid { grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); }
