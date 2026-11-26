@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Soạn dữ liệu · Võ Lâm Yêu Nước</title>
+<link rel="icon" href="data:,">
+<style>
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: #14161b; color: #d8d8d8; font: 13px/1.45 "Segoe UI", Roboto, Arial, sans-serif; }
+button { font: inherit; cursor: pointer; }
+.hidden { display: none !important; }
+.muted { color: #8a8d96; }
+header { display: flex; align-items: center; gap: 8px; padding: 8px 14px; background: #1f2229; border-bottom: 1px solid #2e3140; position: sticky; top: 0; z-index: 5; }
+header .t { font-size: 16px; font-weight: 700; color: #f2c230; }
+header .st { font-size: 12px; color: #8a8d96; margin-left: 10px; }
+header .sp { margin-left: auto; }
+.btn { background: #2e3140; color: #ddd; border: 0; border-radius: 6px; padding: 6px 12px; }
+.btn:hover { background: #3a3f50; }
+.btn.pri { background: #e8892c; color: #2a1404; font-weight: 600; }
+.btn.pri:hover { background: #f39b40; }
+.btn.danger { background: #4a1e1e; color: #ffb0a0; }
+.btn.sm { padding: 3px 9px; font-size: 12px; }
+.wrap { display: grid; grid-template-columns: 210px 1fr; gap: 12px; padding: 12px; }
+nav { background: #1f2229; border-radius: 10px; padding: 8px; align-self: start; position: sticky; top: 62px; max-height: calc(100vh - 80px); overflow: auto; }
+nav .g { color: #8a8d96; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; margin: 10px 6px 4px; }
+nav .g:first-child { margin-top: 2px; }
+nav button { display: flex; width: 100%; background: none; border: 0; color: #ccc; text-align: left; padding: 5px 8px; border-radius: 6px; }
+nav button:hover { background: #2a2d38; }
+nav button.on { background: #3a3f50; color: #fff; }
+nav button .n { margin-left: auto; color: #777; font-size: 11px; }
+main { min-width: 0; }
+.sec-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+.sec-head h2 { margin: 0; font-size: 17px; color: #fff; }
+.help { background: #1f2229; border-left: 3px solid #f2c230; padding: 7px 10px; margin: 6px 0 10px; color: #b8bac2; font-size: 12.5px; }
+.filters { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+.filters label { color: #8a8d96; font-size: 12px; display: flex; gap: 5px; align-items: center; }
+.card { display: flex; gap: 10px; background: #1f2229; border: 1px solid #2a2d38; border-radius: 10px; padding: 10px; margin-bottom: 8px; }
+.card .imgs { display: flex; flex-direction: column; gap: 6px; flex: none; }
+.card .imgs.wide { flex-direction: row; flex-wrap: wrap; width: 250px; }
+.card .body { flex: 1; min-width: 0; }
+.card .head { font-weight: 600; color: #f2c230; margin-bottom: 6px; display: flex; gap: 8px; align-items: center; }
+.card .head .acts { margin-left: auto; display: flex; gap: 4px; }
+.fields { display: flex; flex-wrap: wrap; gap: 8px 10px; }
+.f { display: flex; flex-direction: column; gap: 2px; font-size: 11.5px; color: #8a8d96; }
+.f.s { width: 80px; } .f.m { width: 150px; } .f.l { width: 240px; } .f.xl { width: 100%; }
+.f input, .f select, .f textarea { background: #15171c; border: 1px solid #343846; border-radius: 5px; color: #fff; padding: 4px 6px; font: inherit; font-size: 13px; width: 100%; }
+.f textarea { min-height: 46px; resize: vertical; }
+.f input:focus, .f select:focus, .f textarea:focus { outline: none; border-color: #f2c230; }
+.f input[type=color] { padding: 1px; height: 28px; }
+.f input[type=checkbox] { width: auto; }
+.tag { display: inline-block; font-size: 10.5px; padding: 0 6px; border-radius: 8px; margin-left: 4px; font-weight: 500; }
+.tag.ok { background: #1e3a1e; color: #8fd88f; }
+.tag.new { background: #3a2a10; color: #f2c230; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.chip { background: #15171c; border: 1px solid #343846; color: #aaa; border-radius: 12px; padding: 2px 9px; font-size: 12px; }
+.chip.on { background: #3a3218; border-color: #f2c230; color: #ffe08a; }
+.lines { display: flex; flex-direction: column; gap: 4px; }
+.line { display: flex; gap: 6px; align-items: center; }
+.line select, .line input { background: #15171c; border: 1px solid #343846; border-radius: 5px; color: #fff; padding: 3px 6px; font: inherit; font-size: 12.5px; }
+.line input { width: 80px; }
+.line select { width: 260px; }
+.line .x { background: none; border: 0; color: #a66; font-size: 15px; }
+.lines .hd { display: flex; gap: 6px; font-size: 11px; color: #777; }
+.img { width: 72px; height: 72px; border: 1px dashed #555; border-radius: 8px; background: #15171c center/contain no-repeat; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 10.5px; color: #777; position: relative; outline: none; }
+.img.bg { width: 128px; height: 72px; background-size: cover; }
+.img.has { border-style: solid; border-color: #3a3f50; color: transparent; }
+.img.active { border: 2px solid #f2c230; }
+.img .clr { position: absolute; right: -6px; top: -6px; width: 18px; height: 18px; border-radius: 9px; border: 0; background: #4a1e1e; color: #ffb0a0; font-size: 11px; line-height: 18px; padding: 0; display: none; }
+.img.has .clr { display: block; }
+.img-l { font-size: 10.5px; color: #777; text-align: center; }
+#toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: #3a3f50; color: #fff; padding: 7px 14px; border-radius: 8px; opacity: 0; transition: .2s; pointer-events: none; z-index: 20; }
+#toast.on { opacity: 1; }
+.empty { color: #777; padding: 20px; text-align: center; background: #1f2229; border-radius: 10px; }
+</style>
+</head>
+<body>
+<header>
+  <span class="t">Soạn dữ liệu · Võ Lâm Yêu Nước</span>
+  <span class="st" id="status">Đang tải...</span>
+  <span class="sp"></span>
+  <button class="btn" id="b-open">Mở file gamedata.json</button>
+  <button class="btn pri" id="b-export">Xuất gamedata.json</button>
+  <button class="btn danger" id="b-reset">Về dữ liệu mẫu</button>
+  <input type="file" id="f-open" accept=".json,application/json" class="hidden">
+  <input type="file" id="f-img" accept="image/*" class="hidden">
+</header>
+<div class="wrap">
+  <nav id="nav"></nav>
+  <main id="main"></main>
+</div>
+<div id="toast"></div>
+
+<script>
+"use strict";
+// =====================================================================
+// FORM NHẬP DỮ LIỆU — Võ Lâm Yêu Nước
+// Tự lưu trên trình duyệt (IndexedDB). Xuất ra gamedata.json để gửi Claude / upload GitHub.
+// =====================================================================
+
+const uid = p => p + "_" + Math.random().toString(36).slice(2, 8);
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+// ---------------- Dữ liệu mẫu ----------------
+const SKILL_SLOTS = [
+  { id: "lmb", name: "Chuột trái · skill chính" },
+  { id: "rmb", name: "Chuột phải · skill phụ" },
+  { id: "p1",  name: "Bị động 1" },
+  { id: "p2",  name: "Bị động 2" },
+  { id: "q",   name: "Q · buff/debuff" }
+];
+const BOOST_ATTRS = [
+  { id: "dmg", name: "Sát thương %" }, { id: "aspd", name: "Tốc đánh %" }, { id: "cd", name: "Hồi chiêu %" },
+  { id: "size", name: "Vùng / kích thước %" }, { id: "dur", name: "Thời gian tác dụng %" }, { id: "count", name: "Số lượng (cộng thêm)" },
+  { id: "mp", name: "Nội lực tiêu hao %" }, { id: "effectChance", name: "Tỉ lệ gây hiệu ứng %" },
+  { id: "crit", name: "Chí mạng %" }, { id: "critdmg", name: "Sát thương chí mạng %" }
+];
+const BIKIP_TIERS = [{ id: "ha", name: "Hạ cấp" }, { id: "trung", name: "Trung cấp" }, { id: "cao", name: "Cao cấp" }];
+const GOLD_TIERS = [{ id: "ha", name: "Hạ" }, { id: "trung", name: "Trung" }, { id: "thuong", name: "Thượng" }];
+const DROP_SOURCES = [{ id: "mob", name: "Quái thường" }, { id: "boss", name: "Boss map" }, { id: "gold", name: "Boss Hoàng Kim" }];
+const WEAPON_TYPES = [{ id: "dao", name: "Đao" }, { id: "kiem", name: "Kiếm" }, { id: "bong", name: "Bổng (Côn)" }, { id: "quyen", name: "Quyền (bao tay, chỉ)" }, { id: "phidao", name: "Phi Đao" }];
+const MISC_KINDS = [{ id: "hp", name: "Hồi máu" }, { id: "mp", name: "Hồi nội lực" }, { id: "cure", name: "Giải hiệu ứng xấu" }, { id: "revive", name: "Hồi sinh" },
+  { id: "ticket", name: "Vé boss Hoàng Kim" }, { id: "skillup", name: "Nâng cấp skill" }, { id: "reset", name: "Reset skill" }, { id: "other", name: "Khác" }];
+const MISC_SOURCES = [{ id: "shop", name: "Cửa hàng" }, { id: "boss", name: "Boss map" }, { id: "gold", name: "Boss Hoàng Kim" }];
+const USE_IN = [{ id: "boss", name: "Đánh boss" }, { id: "pk", name: "PK" }, { id: "idle", name: "Treo máy" }];
+const isUsable = it => ["hp", "mp", "cure", "revive"].includes(it.kind);
+
+// Chỉ số gốc theo phái: giá trị cấp 1 + tăng mỗi cấp
+const SECT_BASE = {
+  thieulam: { hpBase: 260, hpLv: 55, mpBase: 80, mpLv: 6, atkBase: 18, atkLv: 5.5, defBase: 8, defLv: 3, mpRegen: 3, manaShield: 0, role: "Đỡ đòn: máu và phòng cao nhất, nội lực ít nhất." },
+  duongmon: { hpBase: 190, hpLv: 38, mpBase: 110, mpLv: 12, atkBase: 23, atkLv: 7, defBase: 5, defLv: 2, mpRegen: 3, manaShield: 0, role: "Sát thương cao nhất, máu vừa." },
+  vodang:   { hpBase: 160, hpLv: 30, mpBase: 200, mpLv: 25, atkBase: 20, atkLv: 6, defBase: 4, defLv: 1.5, mpRegen: 4, manaShield: 30, role: "Mana shield: nội lực nhiều nhất, máu mỏng nhất. 30% sát thương nhận vào trừ vào nội lực." },
+  doanthi:  { hpBase: 200, hpLv: 40, mpBase: 140, mpLv: 16, atkBase: 21, atkLv: 6.5, defBase: 5, defLv: 2, mpRegen: 3.5, manaShield: 0, role: "Cân bằng." },
+  caibang:  { hpBase: 230, hpLv: 48, mpBase: 90, mpLv: 9, atkBase: 22, atkLv: 6.5, defBase: 6, defLv: 2.5, mpRegen: 3, manaShield: 0, role: "Cận chiến bền, nội lực ít." }
+};
+const SECT_BASE_DEFAULT = { hpBase: 200, hpLv: 40, mpBase: 100, mpLv: 10, atkBase: 20, atkLv: 6, defBase: 5, defLv: 2, mpRegen: 3, manaShield: 0, role: "" };
+function applySectBase(s) {
+  const b = SECT_BASE[s.id] || SECT_BASE_DEFAULT;
+  for (const k in b) {
+    if (k === "role") { if (!s.desc) s.desc = b.role; }
+    else if (s[k] === undefined) s[k] = b[k];
+  }
+  return s;
+}
+
+function defaultData() {
+  const D = { meta: { app: "vlyn", kind: "gamedata", version: 2, updated: Date.now() } };
+
+  D.settings = {
+    counterBonus: 15, offlineHours: 8, invSize: 40, invMiscSize: 30, skillGemMul: 1, resetRefund: 100, maxLevel: 99, expBase: 100, expPow: 2.2,
+    mobDropChance: 12, maxOverLevel: 5, bikipMaxLv: 3,
+    mpRegenFlat: 5, manaShieldRatio: 1, manaShieldCap: 80, reflectCap: 50,
+    rules: "Qua boss map mới mở map kế tiếp. Bí kíp chỉ phái đó đọc được, phái khác bán lấy vàng. Đọc trùng bí kíp để lên cấp (tối đa 3). Skill chuột trái của mọi phái đều theo tốc đánh. Skill chuột phải có hồi chiêu cố định.",
+    note: ""
+  };
+
+  D.elements = [
+    { id: "kim", name: "Kim", color: "#f2c230", counters: "moc" },
+    { id: "moc", name: "Mộc", color: "#4caf50", counters: "tho" },
+    { id: "tho", name: "Thổ", color: "#b07a3c", counters: "thuy" },
+    { id: "thuy", name: "Thủy", color: "#3f86e0", counters: "hoa" },
+    { id: "hoa", name: "Hỏa", color: "#e04040", counters: "kim" }
+  ];
+
+  D.genders = [
+    { id: "nam", name: "Nam", dmgBonus: 15, spread: 10, idleHit: 85, homing: false, note: "Sát thương cao, kém chính xác" },
+    { id: "nu", name: "Nữ", dmgBonus: 0, spread: 3, idleHit: 95, homing: true, note: "Chính xác, đạn tự bám nhẹ" }
+  ];
+
+  D.sects = [
+    { id: "thieulam", name: "Thiếu Lâm", element: "kim", robe: "#e8892c", enabled: true, path1: "Đường Đao", weapon1: "dao", path2: "Đường Côn", weapon2: "bong", desc: "", img: "" },
+    { id: "duongmon", name: "Đường Môn", element: "moc", robe: "#3f9a4a", enabled: false, path1: "", weapon1: "", path2: "", weapon2: "", desc: "", img: "" },
+    { id: "vodang", name: "Võ Đang", element: "tho", robe: "#9a7040", enabled: false, path1: "", weapon1: "", path2: "", weapon2: "", desc: "", img: "" },
+    { id: "doanthi", name: "Đoàn Thị", element: "thuy", robe: "#3f7ad0", enabled: false, path1: "", weapon1: "", path2: "", weapon2: "", desc: "", img: "" },
+    { id: "caibang", name: "Cái Bang", element: "hoa", robe: "#b04030", enabled: false, path1: "", weapon1: "", path2: "", weapon2: "", desc: "", img: "" }
+  ];
+  D.sects.forEach(applySectBase);
+
+  const sk = (sect, path, slot, o = {}) => Object.assign({
+    id: uid("sk"), sect, path, slot, name: "", mech: slot === "p1" || slot === "p2" ? "passive_skill" : "",
+    maxLv: 10, aspd: slot === "lmb" ? 2 : 0, dmg: 0, dmgLv: 0, cd: 0, cdLv: 0, mp: 0,
+    dur: 0, durLv: 0, size: 0, sizeLv: 0, count: 1, countLv: 0,
+    effect: "", effectChance: 0, effectChanceLv: 0, target: "", boosts: [], stats: [],
+    desc: "", note: "", img: ""
+  }, o);
+  D.skills = [];
+  D.sects.forEach(s => [1, 2].forEach(p => SKILL_SLOTS.forEach(sl => D.skills.push(sk(s.id, p, sl.id)))));
+  const find = (sect, path, slot) => D.skills.find(x => x.sect === sect && x.path === path && x.slot === slot);
+  const daoL = find("thieulam", 1, "lmb"), daoR = find("thieulam", 1, "rmb");
+  Object.assign(daoL, { name: "Nguyệt Đao Trảm", mech: "crescent", aspd: 2.5, dmg: 100, dmgLv: 12, size: 17, sizeLv: 3,
+    desc: "Bắn trăng khuyết vàng bay thẳng. Lên cấp trăng to hơn. Tốc độ ra đòn theo tốc đánh." });
+  Object.assign(daoR, { name: "Sư Tử Hống", mech: "cone", dmg: 230, dmgLv: 30, cd: 8, cdLv: 0.3, mp: 30, size: 250,
+    desc: "Hét vùng tam giác trước mặt, gây sát thương và xóa đạn trong vùng. Hồi chiêu cố định, không theo tốc đánh." });
+  Object.assign(find("thieulam", 1, "p1"), { name: "Nguyệt Ảnh Đao Pháp", mech: "passive_skill", target: daoL.id,
+    boosts: [{ attr: "dmg", per: 5 }, { attr: "aspd", per: 4 }], desc: "Tăng sát thương và tốc đánh của Nguyệt Đao Trảm." });
+  Object.assign(find("thieulam", 1, "p2"), { name: "Long Ngâm Công", mech: "passive_skill", target: daoR.id,
+    boosts: [{ attr: "cd", per: -4 }, { attr: "size", per: 6 }], desc: "Giảm hồi chiêu và mở rộng vùng của Sư Tử Hống." });
+  Object.assign(find("thieulam", 1, "q"), { name: "Phật Quang Phổ Chiếu", mech: "invuln", cd: 22, cdLv: 0.6, mp: 40, dur: 2, durLv: 0.15,
+    desc: "Không nhận sát thương trong vài giây." });
+  Object.assign(find("thieulam", 2, "lmb"), { name: "Phi Côn", mech: "staff_trap", aspd: 1.6, dmg: 80, dmgLv: 10, dur: 2, size: 60, count: 1, countLv: 0.5,
+    desc: "Ném côn gây sát thương. Côn rơi xuống xoay tại chỗ gây sát thương vùng như bẫy. Lên cấp rơi được nhiều điểm cùng lúc." });
+
+  D.bikip = [];
+  D.sects.forEach(s => BIKIP_TIERS.forEach(t => D.bikip.push({ id: uid("bk"), sect: s.id, tier: t.id, name: "", maxLv: 3, stats: [], desc: "", img: "" })));
+  Object.assign(D.bikip.find(b => b.sect === "thieulam" && b.tier === "ha"),
+    { name: "Dịch Cân Kinh", stats: [{ stat: "hpPct", v1: 10, v2: 20, v3: 30 }], desc: "Ví dụ: tăng % máu (tính trên tổng sau khi mặc đồ)." });
+
+  D.mechanics = [
+    { id: "crescent", name: "Bắn trăng khuyết bay thẳng", done: true, note: "" },
+    { id: "staff_trap", name: "Ném vật, rơi xuống xoay gây sát thương vùng (bẫy)", done: false, note: "" },
+    { id: "cone", name: "Vùng tam giác trước mặt", done: true, note: "Có tùy chọn xóa đạn" },
+    { id: "circle", name: "Vòng tròn quanh người", done: false, note: "" },
+    { id: "orbit", name: "Vật xoay quanh người", done: false, note: "" },
+    { id: "dash", name: "Lướt tới gây sát thương", done: false, note: "" },
+    { id: "invuln", name: "Bất tử (không nhận sát thương)", done: false, note: "" },
+    { id: "shield", name: "Khiên chặn đạn", done: true, note: "" },
+    { id: "buff_stat", name: "Buff chỉ số có thời gian", done: false, note: "" },
+    { id: "debuff_area", name: "Debuff vùng lên kẻ địch", done: false, note: "" },
+    { id: "passive_skill", name: "Bị động: tăng cường skill khác", done: true, note: "" },
+    { id: "passive_stat", name: "Bị động: tăng chỉ số", done: true, note: "" },
+    { id: "other", name: "Khác (mô tả trong ghi chú)", done: false, note: "" }
+  ];
+
+  D.patterns = [
+    { id: "ring", name: "Vòng đạn tỏa tròn", done: true, note: "" },
+    { id: "fan", name: "Quạt đạn nhắm vào người", done: true, note: "" },
+    { id: "spiral", name: "Xoắn ốc", done: true, note: "" },
+    { id: "wall", name: "Tường đạn có khe hở", done: true, note: "" },
+    { id: "big", name: "Cầu lớn bay chậm rồi nổ tung", done: true, note: "" },
+    { id: "charge", name: "Lao vào người chơi", done: true, note: "" },
+    { id: "rain", name: "Mưa đạn từ trên xuống", done: false, note: "" },
+    { id: "summon", name: "Triệu hồi quái con", done: false, note: "" },
+    { id: "zone", name: "Vùng cảnh báo rồi nổ", done: false, note: "" },
+    { id: "laser", name: "Tia quét", done: false, note: "" }
+  ];
+
+  const st = (id, name, unit, group, done = false, note = "") => ({ id, name, unit, group, done, note });
+  D.stats = [
+    st("atk", "Công", "số", "Cơ bản", true), st("hp", "Máu", "số", "Cơ bản", true), st("mp", "Nội lực", "số", "Cơ bản", true),
+    st("def", "Phòng", "số", "Cơ bản", true), st("crit", "Chí mạng", "%", "Cơ bản", true), st("critdmg", "Sát thương chí mạng", "%", "Cơ bản"),
+    st("aspd", "Tốc đánh", "%", "Cơ bản"), st("mspd", "Tốc chạy", "%", "Cơ bản", true), st("atkPct", "Công", "%", "Cơ bản"),
+    st("hpPct", "Máu", "%", "Cơ bản"), st("hpregen", "Hồi máu mỗi giây", "số", "Cơ bản"), st("mpregen", "Hồi nội lực mỗi giây", "số", "Cơ bản"),
+    st("cdr", "Giảm hồi chiêu", "%", "Cơ bản"), st("lifesteal", "Hút máu", "%", "Cơ bản"),
+    st("burnDmg", "Sát thương Hỏa (tổng trong 3 giây)", "số", "Gây hiệu ứng"), st("poisonDmg", "Sát thương Độc (tổng trong 10 giây)", "số", "Gây hiệu ứng"),
+    st("slowChance", "Tỉ lệ làm chậm", "%", "Gây hiệu ứng"), st("freezeChance", "Tỉ lệ đóng băng", "%", "Gây hiệu ứng"),
+    st("stunChance", "Tỉ lệ choáng", "%", "Gây hiệu ứng"),
+    st("burnRes", "Giảm sát thương đốt", "%", "Kháng hiệu ứng"), st("poisonRes", "Giảm sát thương độc", "%", "Kháng hiệu ứng"),
+    st("slowRes", "Giảm thời gian làm chậm", "%", "Kháng hiệu ứng"), st("freezeRes", "Giảm thời gian đóng băng", "%", "Kháng hiệu ứng"),
+    st("stunRes", "Giảm thời gian choáng", "%", "Kháng hiệu ứng"),
+    st("counterRes", "Giảm sát thương khi bị khắc", "%", "Ngũ hành"), st("counterDmg", "Tăng sát thương khi khắc địch", "%", "Ngũ hành"),
+    st("mpPct", "Nội lực", "%", "Cơ bản", false, "Tính trên tổng sau khi mặc đồ."), st("defPct", "Phòng", "%", "Cơ bản", false, "Tính trên tổng sau khi mặc đồ."),
+    st("reflect", "Phản sát thương", "%", "Đặc biệt", false, "Địch đánh 100, có 20% thì địch nhận lại 20, ta chỉ mất 80. Giới hạn ở Cài đặt chung."),
+    st("bulletConvert", "Biến đạn địch thành đạn ta", "%", "Đặc biệt", false, "Tỉ lệ đạn địch chạm người bị đổi thành đạn của ta, bay ngược về kẻ địch. Ta không mất máu viên đó."),
+    st("manaShield", "Sát thương nhận vào nội lực", "%", "Đặc biệt", false, "X% sát thương nhận vào trừ vào nội lực thay cho máu. Hết nội lực thì trừ máu. Tỉ lệ đổi và giới hạn ở Cài đặt chung."),
+    st("manasteal", "Hút nội lực", "%", "Đặc biệt", false, "X% sát thương gây ra hồi thành nội lực."),
+    st("allSkills", "Cộng cấp tất cả kỹ năng đã học", "số", "Đặc biệt", false, "+X cấp cho mọi kỹ năng đã học (cấp ≥ 1), được vượt cấp tối đa. Dòng hiếm nhất, chỉ ra ở vũ khí và áo.")
+  ];
+
+  D.effects = [
+    { id: "burn", name: "Đốt (Hỏa)", color: "#ff6a3c", dur: 3, value: 0, valueNote: "Tổng Sát thương Hỏa chia đều trong 3 giây", stack: 1, resist: "burnRes", desc: "" },
+    { id: "poison", name: "Trúng độc", color: "#7ad04a", dur: 10, value: 0, valueNote: "Tổng Sát thương Độc chia đều trong 10 giây", stack: 5, resist: "poisonRes", desc: "Cộng dồn tối đa 5 tầng" },
+    { id: "slow", name: "Làm chậm", color: "#7fb2f0", dur: 2, value: 40, valueNote: "Giảm % tốc chạy", stack: 1, resist: "slowRes", desc: "" },
+    { id: "freeze", name: "Đóng băng", color: "#bfe8ff", dur: 1.5, value: 0, valueNote: "Không di chuyển, không ra chiêu", stack: 1, resist: "freezeRes", desc: "" },
+    { id: "stun", name: "Choáng", color: "#f2e070", dur: 1, value: 0, valueNote: "Không ra chiêu, vẫn đi được chậm", stack: 1, resist: "stunRes", desc: "" }
+  ];
+
+  D.slots = [
+    { id: "weapon", name: "Vũ khí", main: ["atk"], note: "" },
+    { id: "hat", name: "Mũ", main: ["hp", "def"], note: "" },
+    { id: "armor", name: "Áo", main: ["hp", "def"], note: "" },
+    { id: "boots", name: "Giày", main: ["mspd", "def"], note: "" },
+    { id: "ring", name: "Nhẫn", main: ["crit", "atk"], note: "" },
+    { id: "necklace", name: "Dây chuyền", main: ["mp", "hp"], note: "" }
+  ];
+
+  D.rarity = [
+    { id: "r0", name: "Thường", color: "#c8c8c8", mul: 100, affix: 0, wMob: 70, wBoss: 0, wGold: 0 },
+    { id: "r1", name: "Hiếm", color: "#4a90e2", mul: 130, affix: 1, wMob: 22, wBoss: 50, wGold: 20 },
+    { id: "r2", name: "Quý", color: "#a066e0", mul: 165, affix: 2, wMob: 7, wBoss: 38, wGold: 45 },
+    { id: "r3", name: "Huyền thoại", color: "#f2a530", mul: 210, affix: 3, wMob: 1, wBoss: 12, wGold: 35 }
+  ];
+
+  const names = {
+    weapon: ["Giới Đao", "Nguyệt Nha Đao", "Kim Cang Đao", "Phục Ma Đao", "Phật Quang Đao"],
+    hat: ["Tăng Mạo", "La Hán Mạo", "Bồ Đề Mạo", "Phật Quang Mạo", "Kim Liên Mạo"],
+    armor: ["Tăng Bào", "Cà Sa", "La Hán Giáp", "Kim Lan Cà Sa", "Phật Quang Giáp"],
+    boots: ["Giày Vải", "Hài Cỏ", "Đạp Tuyết Hài", "Truy Phong Hài", "Lăng Ba Hài"],
+    ring: ["Nhẫn Đồng", "Nhẫn Bồ Đề", "Ngọc Giới", "Xá Lợi Giới", "Kim Cang Giới"],
+    necklace: ["Chuỗi Hạt Gỗ", "Chuỗi Bồ Đề", "Chuỗi Phật Châu", "Xá Lợi Liên", "Kim Liên Chuỗi"]
+  };
+  const mains = {
+    weapon: [{ stat: "atk", base: 6, per: 4 }],
+    hat: [{ stat: "hp", base: 20, per: 10 }, { stat: "def", base: 2, per: 1 }],
+    armor: [{ stat: "hp", base: 35, per: 16 }, { stat: "def", base: 3, per: 1.5 }],
+    boots: [{ stat: "mspd", base: 3, per: 0.2 }, { stat: "def", base: 1, per: 0.6 }],
+    ring: [{ stat: "crit", base: 2, per: 0.12 }, { stat: "atk", base: 2, per: 1.5 }],
+    necklace: [{ stat: "mp", base: 10, per: 4 }, { stat: "hp", base: 15, per: 8 }]
+  };
+  D.items = [];
+  Object.keys(names).forEach(slot => names[slot].forEach((n, i) => D.items.push({
+    id: uid("it"), name: n, slot, ...(slot === "weapon" ? { weaponType: "dao" } : {}), sect: "all", path: "all",
+    lvFrom: i * 10 + 1, lvTo: (i + 1) * 10, main: JSON.parse(JSON.stringify(mains[slot])),
+    sources: ["mob", "boss", "gold"], desc: "", img: ""
+  })));
+
+  const af = (stat, base, per, minR = "r1") => ({ id: uid("af"), stat, base, per, slots: [], minRarity: minR, note: "" });
+  D.affixes = [
+    af("atk", 1, 1.5), af("hp", 10, 6), af("def", 1, 0.8), af("crit", 1, 0.08), af("mp", 5, 2), af("mspd", 1, 0.1),
+    af("aspd", 2, 0.1), af("critdmg", 5, 0.3), af("hpregen", 2, 0.5), af("lifesteal", 1, 0.03, "r2"),
+    af("burnDmg", 3, 1.2, "r2"), af("poisonDmg", 3, 1.2, "r2"), af("slowChance", 3, 0.05, "r2"),
+    af("freezeChance", 2, 0.03, "r3"), af("stunChance", 2, 0.03, "r3"),
+    af("burnRes", 5, 0.2), af("poisonRes", 5, 0.2), af("slowRes", 5, 0.2), af("freezeRes", 5, 0.2), af("stunRes", 5, 0.2),
+    af("reflect", 3, 0.1, "r2"), af("manaShield", 3, 0.1, "r2"), af("manasteal", 1, 0.03, "r2"), af("bulletConvert", 2, 0.05, "r3"),
+    Object.assign(af("allSkills", 1, 0, "r3"), { slots: ["weapon", "armor"], note: "Dòng hiếm nhất" })
+  ];
+
+  const mapNames = ["Rừng Trúc", "Hoàng Thổ Lĩnh", "Băng Cốc", "Hỏa Diệm Sơn", "Kim Sơn Phế Tự", "", "", "", ""];
+  const mapEls = ["moc", "tho", "thuy", "hoa", "kim", "moc", "tho", "thuy", "hoa"];
+  const mobNames = [["Trúc Yêu", "Độc Xà", "Mộc Tinh"], ["Thạch Quái", "Sa Trùng", "Thổ Hành Tôn"], ["Băng Hồn", "Hàn Ngư Tinh", "Tuyết Lang"],
+    ["Hỏa Linh", "Viêm Hổ", "Hỏa Ma"], ["Kim Giáp Thi", "Đồng Nhân", "Kiếm Hồn"]];
+  const bossNames = ["Trúc Lâm Yêu Vương", "Thạch Ma Vương", "Băng Hồn Nữ Vương", "Xích Diệm Ma Quân", "Kim Giáp Tướng Quân", "", "", "", ""];
+  const pats = ["ring", "fan", "wall", "spiral", "big", "charge"];
+  D.maps = []; D.monsters = []; D.bosses = [];
+  for (let i = 0; i < 9; i++) {
+    const id = "map" + (i + 1), lv = (i + 1) * 10;
+    D.maps.push({ id, order: i + 1, name: mapNames[i], element: mapEls[i], lvFrom: i === 0 ? 1 : i * 10, lvTo: lv, desc: "", note: "", img: "", bg: "" });
+    for (let k = 0; k < 3; k++) D.monsters.push({ id: uid("mob"), map: id, name: (mobNames[i] || [])[k] || "", element: mapEls[i],
+      hpMul: 100, atkMul: 100, expMul: 100, effect: "", effectChance: 0, note: "", img: "" });
+    D.bosses.push({ id: uid("bm"), map: id, name: bossNames[i], lv, element: mapEls[i],
+      hp: 150 * lv * lv + 4000, atk: 15 + 10 * lv, def: 3 + 2 * lv,
+      patterns: pats.slice(0, Math.min(pats.length, 3 + Math.floor(i / 2))), effect: "", effectChance: 0,
+      drops: 2, dropExtra: 40, bikipChance: 0.38, bikipTier: "ha", note: "", img: "" });
+  }
+
+  const goldEls = { ha: ["kim", "moc", "thuy"], trung: ["hoa", "tho", "kim"], thuong: ["moc", "thuy", "hoa"] };
+  const goldLv = { ha: 30, trung: 60, thuong: 90 };
+  const goldUnlock = { ha: "map3", trung: "map6", thuong: "map9" };
+  const goldMax = { ha: "ha", trung: "trung", thuong: "cao" };
+  D.goldBosses = [];
+  GOLD_TIERS.forEach(t => goldEls[t.id].forEach(el => {
+    const lv = goldLv[t.id];
+    D.goldBosses.push({ id: uid("hk"), tier: t.id, name: "", lv, element: el,
+      hp: 3 * (150 * lv * lv + 4000), atk: Math.round(1.5 * (15 + 10 * lv)), def: 3 + 3 * lv,
+      patterns: ["ring", "fan", "spiral", "wall", "big", "charge"], effect: "", effectChance: 0,
+      unlock: goldUnlock[t.id], drops: 3, bikipChance: 15, bikipMax: goldMax[t.id], goldItemChance: 10, note: "", img: "" });
+  }));
+  D.goldItems = [];
+  D.misc = [];
+  return D;
+}
+
+let DATA = null;
+
+// ---------------- Option helpers ----------------
+const opt = (arr, label = x => x.name || "(chưa đặt tên)") => arr.map(x => ({ v: x.id, t: label(x) }));
+const O = {
+  elements: () => opt(DATA.elements),
+  sects: () => opt(DATA.sects),
+  sectsAll: () => [{ v: "all", t: "Tất cả phái" }, ...opt(DATA.sects)],
+  paths: it => {
+    const s = DATA.sects.find(x => x.id === it.sect);
+    return [{ v: 1, t: (s && s.path1) || "Đường 1" }, { v: 2, t: (s && s.path2) || "Đường 2" }];
+  },
+  pathsAll: it => {
+    const s = DATA.sects.find(x => x.id === it.sect);
+    return [{ v: "all", t: "Cả 2 đường" }, { v: "1", t: (s && s.path1) || "Đường 1" }, { v: "2", t: (s && s.path2) || "Đường 2" }];
+  },
+  skillSlots: () => SKILL_SLOTS.map(s => ({ v: s.id, t: s.name })),
+  mechs: () => DATA.mechanics.map(m => ({ v: m.id, t: m.name + (m.done ? "" : " (cần code mới)") })),
+  patterns: () => DATA.patterns.map(m => ({ v: m.id, t: m.name + (m.done ? "" : " (cần code)") })),
+  effects: () => [{ v: "", t: "Không" }, ...opt(DATA.effects)],
+  stats: () => DATA.stats.map(s => ({ v: s.id, t: `${s.name}${s.unit === "%" ? " %" : ""}` })),
+  slots: () => opt(DATA.slots),
+  rarity: () => opt(DATA.rarity),
+  maps: () => DATA.maps.map(m => ({ v: m.id, t: `${m.order}. ${m.name || "(chưa đặt tên)"}` })),
+  sameSkills: it => DATA.skills.filter(s => s.sect === it.sect && s.path === it.path && s.id !== it.id && (s.slot === "lmb" || s.slot === "rmb" || s.slot === "q"))
+    .map(s => ({ v: s.id, t: (s.name || "(chưa đặt tên)") + " · " + SKILL_SLOTS.find(x => x.id === s.slot).name })),
+  itemSkills: it => DATA.skills.filter(s => s.sect === it.sect && (it.path === "all" || String(s.path) === String(it.path)))
+    .map(s => ({ v: s.id, t: (s.name || "(chưa đặt tên)") + " · " + SKILL_SLOTS.find(x => x.id === s.slot).name })),
+  goldLv: () => [{ v: 50, t: "Cấp 50" }, { v: 90, t: "Cấp 90" }],
+  weaponTypes: () => WEAPON_TYPES.map(w => ({ v: w.id, t: w.name })),
+  miscKinds: () => MISC_KINDS.map(x => ({ v: x.id, t: x.name })),
+  miscSources: () => MISC_SOURCES.map(x => ({ v: x.id, t: x.name })),
+  useIn: () => USE_IN.map(x => ({ v: x.id, t: x.name })),
+  boostAttrs: () => BOOST_ATTRS.map(b => ({ v: b.id, t: b.name })),
+  bikipTiers: () => BIKIP_TIERS.map(b => ({ v: b.id, t: b.name })),
+  goldTiers: () => GOLD_TIERS.map(b => ({ v: b.id, t: b.name })),
+  sources: () => DROP_SOURCES.map(b => ({ v: b.id, t: b.name })),
+  units: () => [{ v: "số", t: "Số" }, { v: "%", t: "%" }],
+  statGroups: () => ["Cơ bản", "Gây hiệu ứng", "Kháng hiệu ứng", "Ngũ hành", "Đặc biệt", "Khác"].map(g => ({ v: g, t: g }))
+};
+const nameOf = (list, id) => { const x = DATA[list].find(v => v.id === id); return x ? (x.name || "(chưa đặt tên)") : ""; };
+const isPassive = it => it.slot === "p1" || it.slot === "p2";
+
+// ---------------- Định nghĩa các mục ----------------
+// field: { k, l(label), t(type), w(width s/m/l/xl), o(options fn), show(it), rr(re-render card on change), cols(lines) }
+const SECTIONS = [
+  { group: "Nhân vật", key: "sects", title: "Môn phái & đường", noAdd: false,
+    help: "5 phái theo ngũ hành. Mỗi phái có 2 đường (vũ khí khác nhau). Tắt 'Mở chơi' thì phái hiện 'sắp ra mắt'. Chỉ số gốc = giá trị cấp 1 + (cấp − 1) × mỗi cấp; dòng vàng hiện sẵn kết quả ở cấp 90 để so các phái.",
+    head: it => { const at = (b, l) => Math.round((+b || 0) + (+l || 0) * 89).toLocaleString("vi-VN");
+      return `${it.name || "(chưa đặt tên)"} · ${nameOf("elements", it.element)} <span class="muted" style="font-weight:400">· Cấp 90: Máu ${at(it.hpBase, it.hpLv)} · Nội lực ${at(it.mpBase, it.mpLv)} · Công ${at(it.atkBase, it.atkLv)} · Phòng ${at(it.defBase, it.defLv)}</span>`; },
+    imgs: [{ k: "img", l: "Biểu tượng phái" }],
+    fields: [
+      { k: "name", l: "Tên phái", t: "text", w: "m", rr: 1 }, { k: "element", l: "Ngũ hành", t: "select", o: O.elements, w: "m", rr: 1 },
+      { k: "robe", l: "Màu áo", t: "color", w: "s" }, { k: "enabled", l: "Mở chơi", t: "check", w: "s" },
+      { k: "path1", l: "Tên đường 1", t: "text", w: "m" }, { k: "weapon1", l: "Vũ khí đường 1", t: "select", o: O.weaponTypes, w: "m", blank: "— chọn —" },
+      { k: "path2", l: "Tên đường 2", t: "text", w: "m" }, { k: "weapon2", l: "Vũ khí đường 2", t: "select", o: O.weaponTypes, w: "m", blank: "— chọn —" },
+      { k: "hpBase", l: "Máu cấp 1", t: "num", w: "m" }, { k: "hpLv", l: "Máu + mỗi cấp", t: "num", w: "m" },
+      { k: "mpBase", l: "Nội lực cấp 1", t: "num", w: "m" }, { k: "mpLv", l: "Nội lực + mỗi cấp", t: "num", w: "m" },
+      { k: "atkBase", l: "Công cấp 1", t: "num", w: "m" }, { k: "atkLv", l: "Công + mỗi cấp", t: "num", w: "m" },
+      { k: "defBase", l: "Phòng cấp 1", t: "num", w: "m" }, { k: "defLv", l: "Phòng + mỗi cấp", t: "num", w: "m" },
+      { k: "mpRegen", l: "Hồi nội lực % tối đa/giây", t: "num", w: "m" }, { k: "manaShield", l: "Sát thương nhận vào nội lực % (gốc)", t: "num", w: "l" },
+      { k: "short", l: "Mô tả ngắn (thẻ chọn phái)", t: "text", w: "xl" },
+      { k: "desc", l: "Mô tả / lối chơi", t: "area", w: "xl" }
+    ],
+    newItem: () => applySectBase({ id: uid("sect"), name: "", element: "kim", robe: "#888888", enabled: false, path1: "", weapon1: "", path2: "", weapon2: "", short: "", desc: "", img: "" })
+  },
+  { group: "Nhân vật", key: "skills", title: "Kỹ năng", noAdd: true,
+    help: "Mỗi đường có 5 ô: Chuột trái (skill chính, theo tốc đánh), Chuột phải (skill phụ, hồi chiêu cố định), Bị động 1, Bị động 2, Q (buff/debuff có hồi chiêu và thời gian tác dụng). Cơ chế ghi '(cần code mới)' thì Claude phải viết thêm code. Ô nào không dùng cứ để 0. 'Vũ khí cần cầm': cầm sai loại thì không dùng được skill này; để trống là cầm gì cũng dùng được. 'Sát thương cộng thẳng' không nhân với công nên mạnh lúc đầu game, cuối game thì nhỏ dần.",
+    filters: [{ k: "sect", l: "Phái", o: O.sects }, { k: "path", l: "Đường", o: () => [{ v: 1, t: "Đường 1" }, { v: 2, t: "Đường 2" }] }],
+    head: it => `${nameOf("sects", it.sect)} · ${O.paths(it).find(p => p.v === it.path).t} · ${SKILL_SLOTS.find(s => s.id === it.slot).name}`,
+    imgs: [{ k: "img", l: "Icon skill" }],
+    fields: [
+      { k: "name", l: "Tên skill", t: "text", w: "l" },
+      { k: "mech", l: "Cơ chế", t: "select", o: O.mechs, w: "l", rr: 1, blank: "— chọn —" },
+      { k: "maxLv", l: "Cấp tối đa", t: "num", w: "s" },
+      { k: "weapon", l: "Vũ khí cần cầm", t: "select", o: O.weaponTypes, w: "m", blank: "— không cần —" },
+      { k: "aspd", l: "Tốc đánh gốc (đòn/giây)", t: "num", w: "m", show: it => it.slot === "lmb" },
+      { k: "dmg", l: "Sát thương % công", t: "num", w: "m", show: it => !isPassive(it) },
+      { k: "dmgLv", l: "+ mỗi cấp", t: "num", w: "s", show: it => !isPassive(it) },
+      { k: "flatDmg", l: "Sát thương cộng thẳng (theo hệ phái)", t: "num", w: "m", show: it => !isPassive(it) },
+      { k: "flatDmgLv", l: "+ mỗi cấp", t: "num", w: "s", show: it => !isPassive(it) },
+      { k: "cd", l: "Hồi chiêu (giây)", t: "num", w: "m", show: it => it.slot === "rmb" || it.slot === "q" },
+      { k: "cdLv", l: "− mỗi cấp", t: "num", w: "s", show: it => it.slot === "rmb" || it.slot === "q" },
+      { k: "mp", l: "Nội lực tiêu hao", t: "num", w: "m", show: it => !isPassive(it) },
+      { k: "dur", l: "Thời gian tác dụng (giây)", t: "num", w: "m", show: it => !isPassive(it) },
+      { k: "durLv", l: "+ mỗi cấp", t: "num", w: "s", show: it => !isPassive(it) },
+      { k: "size", l: "Kích thước / vùng", t: "num", w: "m", show: it => !isPassive(it) },
+      { k: "sizeLv", l: "+ mỗi cấp", t: "num", w: "s", show: it => !isPassive(it) },
+      { k: "count", l: "Số đạn / điểm rơi", t: "num", w: "m", show: it => !isPassive(it) },
+      { k: "countLv", l: "+ mỗi cấp (0,5 = +1 sau mỗi 2 cấp)", t: "num", w: "s", show: it => !isPassive(it) },
+      { k: "effect", l: "Gây hiệu ứng", t: "select", o: O.effects, w: "m", show: it => !isPassive(it) },
+      { k: "effectChance", l: "Tỉ lệ gây %", t: "num", w: "s", show: it => !isPassive(it) },
+      { k: "effectChanceLv", l: "+ mỗi cấp", t: "num", w: "s", show: it => !isPassive(it) },
+      { k: "target", l: "Tăng cường cho skill", t: "select", o: O.sameSkills, w: "l", blank: "— không —", show: it => it.mech === "passive_skill" },
+      { k: "boosts", l: "Tăng cường mỗi cấp", t: "lines", w: "xl", show: it => it.mech === "passive_skill",
+        cols: [{ k: "attr", l: "Thuộc tính", t: "select", o: O.boostAttrs }, { k: "per", l: "Mỗi cấp", t: "num" }] },
+      { k: "stats", l: "Chỉ số tăng mỗi cấp (bị động / buff)", t: "lines", w: "xl", show: it => it.mech === "passive_stat" || it.mech === "buff_stat" || it.slot === "q",
+        cols: [{ k: "stat", l: "Chỉ số", t: "select", o: O.stats }, { k: "base", l: "Gốc", t: "num" }, { k: "per", l: "Mỗi cấp", t: "num" }] },
+      { k: "desc", l: "Mô tả hiện trong game", t: "area", w: "xl" },
+      { k: "note", l: "Ghi chú cho Claude (ý tưởng, cách hoạt động)", t: "area", w: "xl" }
+    ]
+  },
+  { group: "Nhân vật", key: "bikip", title: "Bí kíp",
+    help: "Bí kíp là bị động, dùng chung cả 2 đường. Mỗi phái 3 bí kíp: Hạ, Trung, Cao cấp. Rơi từ boss map (rất hiếm) và boss Hoàng Kim. Đọc trùng để lên cấp, tối đa 3. Điền giá trị chỉ số ở từng cấp 1/2/3.",
+    filters: [{ k: "sect", l: "Phái", o: O.sects }],
+    head: it => `${nameOf("sects", it.sect)} · Bí kíp ${BIKIP_TIERS.find(t => t.id === it.tier).name}`,
+    imgs: [{ k: "img", l: "Hình sách" }],
+    fields: [
+      { k: "name", l: "Tên bí kíp", t: "text", w: "l" },
+      { k: "tier", l: "Cấp bí kíp", t: "select", o: O.bikipTiers, w: "m", rr: 1 },
+      { k: "maxLv", l: "Cấp tối đa", t: "num", w: "s" },
+      { k: "stats", l: "Chỉ số tăng", t: "lines", w: "xl",
+        cols: [{ k: "stat", l: "Chỉ số", t: "select", o: O.stats }, { k: "v1", l: "Cấp 1", t: "num" }, { k: "v2", l: "Cấp 2", t: "num" }, { k: "v3", l: "Cấp 3", t: "num" }] },
+      { k: "desc", l: "Mô tả", t: "area", w: "xl" }
+    ],
+    newItem: f => ({ id: uid("bk"), sect: f.sect || "thieulam", tier: "ha", name: "", maxLv: 3, stats: [], desc: "", img: "" })
+  },
+  { group: "Nhân vật", key: "genders", title: "Giới tính", noAdd: true,
+    help: "Nam: sát thương cao, đạn lệch nhiều. Nữ: chính xác, đạn tự bám nhẹ. Lệch đạn tính bằng độ (±). Hình nhân vật đổi theo loại vũ khí đang cầm; ảnh dán vào tự thu về 256×256, nên dùng ảnh nền trong suốt và để các tư thế cùng cỡ, cùng chỗ đứng.",
+    head: it => it.name, imgsWide: true,
+    imgs: [{ k: "sprite_none", l: "Tay không", kind: "sprite" }, { k: "sprite_dao", l: "Cầm Đao", kind: "sprite" },
+      { k: "sprite_kiem", l: "Cầm Kiếm", kind: "sprite" }, { k: "sprite_bong", l: "Cầm Bổng", kind: "sprite" },
+      { k: "sprite_quyen", l: "Quyền / Chỉ", kind: "sprite" }, { k: "sprite_phidao", l: "Cầm Phi Đao", kind: "sprite" }],
+    fields: [
+      { k: "name", l: "Tên", t: "text", w: "m" }, { k: "dmgBonus", l: "Sát thương cộng thêm %", t: "num", w: "m" },
+      { k: "spread", l: "Đạn lệch ± độ", t: "num", w: "m" }, { k: "idleHit", l: "Tỉ lệ trúng khi treo máy %", t: "num", w: "m" },
+      { k: "homing", l: "Đạn tự bám", t: "check", w: "s" }, { k: "note", l: "Ghi chú", t: "text", w: "l" }
+    ]
+  },
+  { group: "Nhân vật", key: "elements", title: "Ngũ hành", noAdd: true,
+    help: "Vòng khắc: Kim khắc Mộc, Mộc khắc Thổ, Thổ khắc Thủy, Thủy khắc Hỏa, Hỏa khắc Kim. % cộng thêm khi khắc chỉnh ở Cài đặt chung.",
+    head: it => it.name,
+    fields: [
+      { k: "name", l: "Tên", t: "text", w: "m" }, { k: "color", l: "Màu skill", t: "color", w: "s" },
+      { k: "counters", l: "Khắc hệ", t: "select", o: O.elements, w: "m" }
+    ]
+  },
+
+  { group: "Trang bị", key: "slots", title: "Ô trang bị",
+    help: "Các ô nhân vật mặc được. Chỉ số chính của từng món điền ở mục Trang bị mẫu; dòng phụ nào ra được ở ô nào thì chọn ở mục Dòng phụ. Thêm ô mới (ví dụ Đai lưng, Ngọc bội) thì Claude sẽ thêm vào game.",
+    head: it => it.name || "(chưa đặt tên)",
+    fields: [
+      { k: "name", l: "Tên ô", t: "text", w: "m" },
+      { k: "note", l: "Ghi chú", t: "text", w: "l" }
+    ],
+    newItem: () => ({ id: uid("slot"), name: "", note: "" })
+  },
+  { group: "Trang bị", key: "items", title: "Trang bị mẫu",
+    help: "Mỗi dòng là một mẫu đồ. Khi rơi, game lấy mẫu theo ô và cấp rồi nhân hệ số độ hiếm. Chỉ số = Gốc + Mỗi cấp × (cấp đồ − Cấp từ): Gốc là chỉ số ở cấp thấp nhất của món, mỗi cấp trên đó cộng thêm một chút; bậc sau luôn mạnh hơn bậc trước. Phái nào cũng mặc được mọi món; cầm sai loại vũ khí thì không dùng được các skill cần vũ khí đó (xem ô 'Vũ khí cần cầm' ở Kỹ năng).",
+    filters: [{ k: "slot", l: "Ô", o: O.slots }, { k: "weaponType", l: "Loại vũ khí", o: O.weaponTypes }],
+    head: it => `${nameOf("slots", it.slot)}${it.slot === "weapon" && it.weaponType ? " · " + (WEAPON_TYPES.find(w => w.id === it.weaponType) || {}).name : ""} · Lv ${it.lvFrom}–${it.lvTo}`,
+    imgs: [{ k: "img", l: "Hình đồ" }],
+    fields: [
+      { k: "name", l: "Tên đồ", t: "text", w: "l" }, { k: "slot", l: "Ô", t: "select", o: O.slots, w: "m", rr: 1 },
+      { k: "weaponType", l: "Loại vũ khí", t: "select", o: O.weaponTypes, w: "m", rr: 1, blank: "— chọn —", show: it => it.slot === "weapon" },
+      { k: "lvFrom", l: "Cấp từ", t: "num", w: "s", rr: 1 }, { k: "lvTo", l: "đến", t: "num", w: "s", rr: 1 },
+      { k: "sources", l: "Rơi từ", t: "multi", o: O.sources, w: "l" },
+      { k: "main", l: "Chỉ số chính", t: "lines", w: "xl",
+        cols: [{ k: "stat", l: "Chỉ số", t: "select", o: O.stats }, { k: "base", l: "Gốc (ở Cấp từ)", t: "num" }, { k: "per", l: "+ mỗi cấp trên đó", t: "num" }] },
+      { k: "desc", l: "Mô tả / ghi chú", t: "area", w: "xl" }
+    ],
+    newItem: f => ({ id: uid("it"), name: "", slot: f.slot || "weapon", weaponType: f.weaponType || "dao", sect: "all", path: "all", lvFrom: 1, lvTo: 10, main: [], sources: ["mob", "boss", "gold"], desc: "", img: "" })
+  },
+  { group: "Trang bị", key: "goldItems", title: "Đồ Hoàng Kim",
+    help: "Trang bị nổi tiếng trong truyện. Chỉ rơi từ boss Hoàng Kim (tỉ lệ ở mục Boss Hoàng Kim), chọn ở ô 'Rơi từ' loại boss nào rơi món này. Chỉ số là số cố định, không nhân hệ số độ hiếm, không có dòng phụ ngẫu nhiên. Mỗi món có 1 đặc tính riêng (Claude sẽ code) và có thể cộng cấp skill của phái. Phái nào cũng đeo được; phần cộng cấp skill chỉ có tác dụng với phái ghi ở ô Phái.",
+    filters: [{ k: "lv", l: "Cấp", o: O.goldLv }, { k: "sect", l: "Phái", o: () => [{ v: "all", t: "Đồ chung mọi phái" }, ...opt(DATA.sects)] }],
+    head: it => { const p = it.sect !== "all" && it.path !== "all" ? (O.pathsAll(it).find(x => x.v === String(it.path)) || {}).t : "";
+      const w = it.slot === "weapon" && it.weaponType ? " · " + (WEAPON_TYPES.find(x => x.id === it.weaponType) || {}).name : "";
+      return `${nameOf("slots", it.slot)}${w} · ${it.sect === "all" ? "Mọi phái" : nameOf("sects", it.sect)}${p ? " · " + p : ""} · Lv${it.lv}`; },
+    imgs: [{ k: "img", l: "Hình đồ" }],
+    fields: [
+      { k: "name", l: "Tên đồ", t: "text", w: "l", rr: 1 }, { k: "slot", l: "Ô", t: "select", o: O.slots, w: "m", rr: 1 },
+      { k: "weaponType", l: "Loại vũ khí", t: "select", o: O.weaponTypes, w: "m", rr: 1, blank: "— chọn —", show: it => it.slot === "weapon" },
+      { k: "sect", l: "Phái (được cộng skill)", t: "select", o: O.sectsAll, w: "m", rr: 1 }, { k: "path", l: "Đường", t: "select", o: O.pathsAll, w: "m", rr: 1 },
+      { k: "lv", l: "Cấp yêu cầu", t: "num", w: "s", rr: 1 },
+      { k: "origin", l: "Xuất xứ (truyện)", t: "text", w: "l" },
+      { k: "dropTiers", l: "Rơi từ boss Hoàng Kim loại", t: "multi", o: O.goldTiers, w: "l" },
+      { k: "stats", l: "Chỉ số cố định", t: "lines", w: "xl",
+        cols: [{ k: "stat", l: "Chỉ số", t: "select", o: O.stats }, { k: "v", l: "Giá trị", t: "num" }] },
+      { k: "skills", l: "Cộng cấp skill", t: "lines", w: "xl", show: it => it.sect !== "all",
+        cols: [{ k: "skill", l: "Skill", t: "select", o: O.itemSkills }, { k: "lv", l: "+ cấp", t: "num" }] },
+      { k: "uniqueName", l: "Tên đặc tính riêng", t: "text", w: "l" },
+      { k: "unique", l: "Đặc tính riêng (hiện trong game)", t: "area", w: "xl" },
+      { k: "note", l: "Ghi chú cho Claude (cách hoạt động)", t: "area", w: "xl" }
+    ],
+    newItem: f => ({ id: uid("hkit"), name: "", slot: "weapon", weaponType: "dao", sect: f.sect || "all", path: "all", lv: f.lv || 50, origin: "", dropTiers: ["thuong"],
+      stats: [], skills: [], uniqueName: "", unique: "", note: "", img: "" })
+  },
+  { group: "Trang bị", key: "misc", title: "Vật phẩm & cửa hàng",
+    help: "Túi đồ chia 2 ngăn: ngăn trang bị (đồ mặc được, bán được) và ngăn vật phẩm (các món ở đây, không bán được). Vật phẩm mua ở cửa hàng bằng vàng hoặc rơi từ boss. 'Xếp chồng' là số lượng tối đa trong 1 ô (1 = không xếp chồng). 'Giá trị': hồi máu/nội lực = % tối đa, hồi sinh = % máu khi sống lại, giải hiệu ứng = số giây miễn nhiễm sau khi uống. '% rơi' tính mỗi lần hạ boss thuộc nguồn đã chọn.",
+    filters: [{ k: "kind", l: "Loại", o: O.miscKinds }],
+    head: it => `${(MISC_KINDS.find(x => x.id === it.kind) || {}).name || ""}${it.shop ? ` · Cửa hàng: ${(+it.price || 0).toLocaleString("vi-VN")} vàng` : ""}${(it.stack || 1) > 1 ? ` · xếp chồng ${it.stack}` : ""}`,
+    imgs: [{ k: "img", l: "Hình vật phẩm" }],
+    fields: [
+      { k: "name", l: "Tên vật phẩm", t: "text", w: "l" }, { k: "kind", l: "Loại", t: "select", o: O.miscKinds, w: "m", rr: 1 },
+      { k: "stack", l: "Xếp chồng tối đa", t: "num", w: "s" },
+      { k: "value", l: "Giá trị", t: "num", w: "s", show: isUsable },
+      { k: "cd", l: "Chờ giữa 2 lần dùng (giây)", t: "num", w: "m", show: isUsable },
+      { k: "pkLimit", l: "Tối đa mỗi trận PK (0 = không giới hạn)", t: "num", w: "m", show: isUsable },
+      { k: "useIn", l: "Dùng được khi", t: "multi", o: O.useIn, w: "l", show: isUsable },
+      { k: "bossTier", l: "Vé cho boss Hoàng Kim loại", t: "select", o: O.goldTiers, w: "m", show: it => it.kind === "ticket" },
+      { k: "shop", l: "Bán ở cửa hàng", t: "check", w: "s", rr: 1 }, { k: "price", l: "Giá (vàng)", t: "num", w: "m", show: it => it.shop },
+      { k: "sources", l: "Có được từ", t: "multi", o: O.miscSources, w: "l" },
+      { k: "dropChance", l: "% rơi từ boss", t: "num", w: "s" }, { k: "dropQty", l: "Số lượng mỗi lần rơi", t: "num", w: "s" },
+      { k: "desc", l: "Mô tả trong game", t: "area", w: "xl" },
+      { k: "note", l: "Ghi chú cho Claude (cách hoạt động)", t: "area", w: "xl" }
+    ],
+    newItem: f => ({ id: uid("vp"), name: "", kind: f.kind || "hp", stack: 99, value: 0, cd: 0, pkLimit: 0, useIn: ["boss", "pk"], bossTier: "ha",
+      shop: true, price: 0, sources: ["shop"], dropChance: 0, dropQty: 1, desc: "", note: "", img: "" })
+  },
+  { group: "Trang bị", key: "affixes", title: "Dòng phụ",
+    help: "Dòng chỉ số ngẫu nhiên thêm vào đồ. Số dòng tùy độ hiếm. Giá trị = (Gốc + Mỗi cấp × cấp đồ) × ngẫu nhiên 60–100%. Không chọn ô nào nghĩa là ô nào cũng ra được.",
+    head: it => nameOf("stats", it.stat),
+    fields: [
+      { k: "stat", l: "Chỉ số", t: "select", o: O.stats, w: "l", rr: 1 },
+      { k: "base", l: "Gốc", t: "num", w: "s" }, { k: "per", l: "Mỗi cấp", t: "num", w: "s" },
+      { k: "minRarity", l: "Độ hiếm tối thiểu", t: "select", o: O.rarity, w: "m" },
+      { k: "slots", l: "Chỉ ra ở ô", t: "multi", o: O.slots, w: "xl" },
+      { k: "note", l: "Ghi chú", t: "text", w: "l" }
+    ],
+    newItem: () => ({ id: uid("af"), stat: "atk", base: 1, per: 1, slots: [], minRarity: "r1", note: "" })
+  },
+  { group: "Trang bị", key: "rarity", title: "Độ hiếm & tỉ lệ rơi",
+    help: "Hệ số % nhân vào chỉ số chính. Tỉ lệ rơi là trọng số (cột cộng lại không cần đúng 100).",
+    head: it => it.name || "(chưa đặt tên)",
+    fields: [
+      { k: "name", l: "Tên", t: "text", w: "m" }, { k: "color", l: "Màu", t: "color", w: "s" },
+      { k: "mul", l: "Hệ số chỉ số %", t: "num", w: "m" }, { k: "affix", l: "Số dòng phụ", t: "num", w: "s" },
+      { k: "wMob", l: "Rơi từ quái", t: "num", w: "s" }, { k: "wBoss", l: "Rơi từ boss map", t: "num", w: "m" },
+      { k: "wGold", l: "Rơi từ boss Hoàng Kim", t: "num", w: "m" }
+    ],
+    newItem: () => ({ id: uid("r"), name: "", color: "#ffffff", mul: 100, affix: 0, wMob: 0, wBoss: 0, wGold: 0 })
+  },
+
+  { group: "Thế giới", key: "maps", title: "Bãi luyện (map)", noAdd: true,
+    help: "9 map. Hạ boss map mới mở map kế tiếp. Hình nền nên dùng ảnh ngang.",
+    head: it => `Map ${it.order} · Lv ${it.lvFrom}–${it.lvTo}`,
+    imgs: [{ k: "img", l: "Icon map" }, { k: "bg", l: "Hình nền", kind: "bg" }],
+    fields: [
+      { k: "name", l: "Tên map", t: "text", w: "l" }, { k: "element", l: "Ngũ hành", t: "select", o: O.elements, w: "m" },
+      { k: "lvFrom", l: "Cấp từ", t: "num", w: "s", rr: 1 }, { k: "lvTo", l: "đến", t: "num", w: "s", rr: 1 },
+      { k: "desc", l: "Mô tả", t: "area", w: "xl" }, { k: "note", l: "Ghi chú cho Claude", t: "area", w: "xl" }
+    ]
+  },
+  { group: "Thế giới", key: "monsters", title: "Quái thường",
+    help: "Quái trong từng map. Hệ số % so với quái chuẩn cùng cấp (100 = bình thường).",
+    filters: [{ k: "map", l: "Map", o: O.maps }],
+    head: it => nameOf("maps", it.map),
+    imgs: [{ k: "img", l: "Hình quái" }],
+    fields: [
+      { k: "name", l: "Tên quái", t: "text", w: "l" }, { k: "map", l: "Map", t: "select", o: O.maps, w: "m", rr: 1 },
+      { k: "element", l: "Ngũ hành", t: "select", o: O.elements, w: "m" },
+      { k: "hpMul", l: "Máu %", t: "num", w: "s" }, { k: "atkMul", l: "Công %", t: "num", w: "s" }, { k: "expMul", l: "EXP %", t: "num", w: "s" },
+      { k: "effect", l: "Gây hiệu ứng", t: "select", o: O.effects, w: "m" }, { k: "effectChance", l: "Tỉ lệ %", t: "num", w: "s" },
+      { k: "note", l: "Ghi chú", t: "text", w: "xl" }
+    ],
+    newItem: f => { const m = DATA.maps.find(x => x.id === (f.map || "map1")); return { id: uid("mob"), map: m.id, name: "", element: m.element, hpMul: 100, atkMul: 100, expMul: 100, effect: "", effectChance: 0, note: "", img: "" }; }
+  },
+  { group: "Thế giới", key: "bosses", title: "Boss map", noAdd: true,
+    help: "Mỗi map 1 boss, cấp 10, 20 … 90. Hạ boss thì mở map tiếp theo. Bí kíp rơi rất hiếm (mặc định 0,38% ≈ 1/260).",
+    head: it => `${nameOf("maps", it.map)} · Boss Lv${it.lv}`,
+    imgs: [{ k: "img", l: "Hình boss" }],
+    fields: [
+      { k: "name", l: "Tên boss", t: "text", w: "l" }, { k: "lv", l: "Cấp", t: "num", w: "s", rr: 1 },
+      { k: "element", l: "Ngũ hành", t: "select", o: O.elements, w: "m" },
+      { k: "hp", l: "Máu", t: "num", w: "m" }, { k: "atk", l: "Công", t: "num", w: "s" }, { k: "def", l: "Phòng", t: "num", w: "s" },
+      { k: "patterns", l: "Chiêu thức", t: "multi", o: O.patterns, w: "xl" },
+      { k: "effect", l: "Gây hiệu ứng", t: "select", o: O.effects, w: "m" }, { k: "effectChance", l: "Tỉ lệ %", t: "num", w: "s" },
+      { k: "drops", l: "Số món rơi", t: "num", w: "s" }, { k: "dropExtra", l: "% rơi thêm 1 món", t: "num", w: "m" },
+      { k: "bikipChance", l: "% rơi bí kíp", t: "num", w: "m" }, { k: "bikipTier", l: "Bí kíp rơi", t: "select", o: O.bikipTiers, w: "m" },
+      { k: "note", l: "Ghi chú cho Claude (chiêu mới, giai đoạn máu…)", t: "area", w: "xl" }
+    ]
+  },
+  { group: "Thế giới", key: "goldBosses", title: "Boss Hoàng Kim",
+    help: "3 loại Hạ, Trung, Thượng, mỗi loại 3 con, có ngũ hành như người chơi (gây thêm sát thương lên hệ bị khắc, nhận thêm từ hệ khắc mình). Mạnh và nhiều chiêu hơn boss map. Bí kíp rơi 15%: Hạ tối đa ra Hạ cấp, Trung tối đa Trung cấp, Thượng ra được tất cả.",
+    filters: [{ k: "tier", l: "Loại", o: O.goldTiers }],
+    head: it => `Hoàng Kim ${GOLD_TIERS.find(t => t.id === it.tier).name} · Lv${it.lv} · ${nameOf("elements", it.element)}`,
+    imgs: [{ k: "img", l: "Hình boss" }],
+    fields: [
+      { k: "name", l: "Tên boss", t: "text", w: "l" }, { k: "tier", l: "Loại", t: "select", o: O.goldTiers, w: "m", rr: 1 },
+      { k: "lv", l: "Cấp", t: "num", w: "s", rr: 1 }, { k: "element", l: "Ngũ hành", t: "select", o: O.elements, w: "m", rr: 1 },
+      { k: "hp", l: "Máu", t: "num", w: "m" }, { k: "atk", l: "Công", t: "num", w: "s" }, { k: "def", l: "Phòng", t: "num", w: "s" },
+      { k: "patterns", l: "Chiêu thức", t: "multi", o: O.patterns, w: "xl" },
+      { k: "effect", l: "Gây hiệu ứng", t: "select", o: O.effects, w: "m" }, { k: "effectChance", l: "Tỉ lệ %", t: "num", w: "s" },
+      { k: "unlock", l: "Mở sau khi hạ boss của", t: "select", o: O.maps, w: "l" },
+      { k: "drops", l: "Số món rơi", t: "num", w: "s" },
+      { k: "bikipChance", l: "% rơi bí kíp", t: "num", w: "m" }, { k: "bikipMax", l: "Bí kíp cao nhất rơi được", t: "select", o: O.bikipTiers, w: "m" },
+      { k: "goldItemChance", l: "% rơi đồ Hoàng Kim", t: "num", w: "m" },
+      { k: "note", l: "Ghi chú cho Claude", t: "area", w: "xl" }
+    ],
+    newItem: f => ({ id: uid("hk"), tier: f.tier || "ha", name: "", lv: 30, element: "kim", hp: 0, atk: 0, def: 0, patterns: [], effect: "", effectChance: 0, unlock: "map3", drops: 3, bikipChance: 15, bikipMax: "ha", goldItemChance: 10, note: "", img: "" })
+  },
+
+  { group: "Hệ thống", key: "stats", title: "Danh sách chỉ số",
+    help: "Tất cả chỉ số dùng cho trang bị, bí kíp, skill. Chỉ số có nhãn 'cần code' thì game chưa tính, Claude sẽ thêm khi làm.",
+    head: it => `${it.name || "(chưa đặt tên)"}${it.unit === "%" ? " %" : ""} <span class="tag ${it.done ? "ok" : "new"}">${it.done ? "đã có" : "cần code"}</span>`,
+    fields: [
+      { k: "name", l: "Tên chỉ số", t: "text", w: "l", rr: 1 }, { k: "unit", l: "Đơn vị", t: "select", o: O.units, w: "s", rr: 1 },
+      { k: "group", l: "Nhóm", t: "select", o: O.statGroups, w: "m" }, { k: "note", l: "Ghi chú / cách tính", t: "text", w: "l" }
+    ],
+    newItem: () => ({ id: uid("stat"), name: "", unit: "số", group: "Khác", done: false, note: "" })
+  },
+  { group: "Hệ thống", key: "effects", title: "Hiệu ứng (debuff)",
+    help: "Hiệu ứng skill, quái, boss gây ra. Mỗi hiệu ứng bị giảm bởi một chỉ số kháng.",
+    head: it => it.name || "(chưa đặt tên)",
+    fields: [
+      { k: "name", l: "Tên", t: "text", w: "m" }, { k: "color", l: "Màu", t: "color", w: "s" },
+      { k: "dur", l: "Thời gian (giây)", t: "num", w: "s" }, { k: "value", l: "Giá trị", t: "num", w: "s" },
+      { k: "valueNote", l: "Tác dụng", t: "text", w: "l" }, { k: "stack", l: "Cộng dồn tối đa", t: "num", w: "s" },
+      { k: "resist", l: "Bị giảm bởi chỉ số", t: "select", o: O.stats, w: "l" }, { k: "desc", l: "Ghi chú", t: "text", w: "l" }
+    ],
+    newItem: () => ({ id: uid("eff"), name: "", color: "#ffffff", dur: 2, value: 0, valueNote: "", stack: 1, resist: "", desc: "" })
+  },
+  { group: "Hệ thống", key: "patterns", title: "Chiêu thức boss",
+    help: "Danh sách kiểu chiêu boss. Muốn chiêu mới thì thêm dòng và mô tả kỹ, Claude sẽ code.",
+    head: it => `${it.name || "(chưa đặt tên)"} <span class="tag ${it.done ? "ok" : "new"}">${it.done ? "đã có" : "cần code"}</span>`,
+    fields: [{ k: "name", l: "Tên chiêu", t: "text", w: "l", rr: 1 }, { k: "note", l: "Mô tả cách ra chiêu", t: "area", w: "xl" }],
+    newItem: () => ({ id: uid("pat"), name: "", done: false, note: "" })
+  },
+  { group: "Hệ thống", key: "mechanics", title: "Cơ chế skill",
+    help: "Kiểu hoạt động của skill người chơi. Thêm cơ chế mới và mô tả, Claude sẽ code.",
+    head: it => `${it.name || "(chưa đặt tên)"} <span class="tag ${it.done ? "ok" : "new"}">${it.done ? "đã có" : "cần code"}</span>`,
+    fields: [{ k: "name", l: "Tên cơ chế", t: "text", w: "l", rr: 1 }, { k: "note", l: "Mô tả", t: "area", w: "xl" }],
+    newItem: () => ({ id: uid("mech"), name: "", done: false, note: "" })
+  },
+  { group: "Hệ thống", key: "settings", title: "Cài đặt chung", single: true,
+    help: "Các con số áp dụng cho toàn game.",
+    head: () => "Cài đặt chung",
+    fields: [
+      { k: "counterBonus", l: "Tương khắc: + % sát thương", t: "num", w: "m" },
+      { k: "offlineHours", l: "Treo máy offline tối đa (giờ)", t: "num", w: "m" },
+      { k: "invSize", l: "Số ô túi trang bị", t: "num", w: "m" }, { k: "invMiscSize", l: "Số ô túi vật phẩm", t: "num", w: "m" },
+      { k: "maxLevel", l: "Cấp tối đa nhân vật", t: "num", w: "m" },
+      { k: "skillGemMul", l: "Nâng skill lên cấp n cần (n − 1) × ? viên ngọc nâng skill", t: "num", w: "l" },
+      { k: "resetRefund", l: "Reset skill hoàn lại % ngọc nâng skill đã dùng", t: "num", w: "l" },
+      { k: "expBase", l: "EXP cấp: hệ số", t: "num", w: "m" }, { k: "expPow", l: "EXP cấp: lũy thừa", t: "num", w: "m" },
+      { k: "mobDropChance", l: "% quái thường rơi đồ", t: "num", w: "m" },
+      { k: "maxOverLevel", l: "Mặc đồ cao hơn cấp mình tối đa", t: "num", w: "m" },
+      { k: "bikipMaxLv", l: "Bí kíp cấp tối đa", t: "num", w: "m" },
+      { k: "mpRegenFlat", l: "Hồi nội lực cố định mỗi giây", t: "num", w: "m" },
+      { k: "manaShieldRatio", l: "Mana shield: 1 nội lực đỡ bao nhiêu sát thương", t: "num", w: "l" },
+      { k: "manaShieldCap", l: "Mana shield tối đa %", t: "num", w: "m" },
+      { k: "reflectCap", l: "Phản sát thương tối đa %", t: "num", w: "m" },
+      { k: "rules", l: "Luật chung", t: "area", w: "xl" },
+      { k: "note", l: "Ghi chú tổng cho Claude", t: "area", w: "xl" }
+    ]
+  }
+];
+const SEC = Object.fromEntries(SECTIONS.map(s => [s.key, s]));
+
+// ---------------- Trạng thái ----------------
+let cur = "sects";
+const filterState = { skills: { sect: "thieulam", path: 1 }, bikip: { sect: "thieulam" }, items: { slot: "weapon" }, goldItems: { lv: 50 }, misc: { kind: "" }, monsters: { map: "map1" }, goldBosses: { tier: "ha" } };
+let activeImg = null;
+
+// ---------------- Lưu tự động (IndexedDB) ----------------
+const DB = {
+  open() { return new Promise((ok, no) => { const r = indexedDB.open("vlyn-editor", 1); r.onupgradeneeded = () => r.result.createObjectStore("kv"); r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error); }); },
+  async get(k) { const db = await this.open(); return new Promise((ok, no) => { const r = db.transaction("kv").objectStore("kv").get(k); r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error); }); },
+  async set(k, v) { const db = await this.open(); return new Promise((ok, no) => { const t = db.transaction("kv", "readwrite"); t.objectStore("kv").put(v, k); t.oncomplete = () => ok(); t.onerror = () => no(t.error); }); }
+};
+let saveT = null;
+function changed() {
+  DATA.meta.updated = Date.now();
+  $("status").textContent = "Đang lưu...";
+  clearTimeout(saveT);
+  saveT = setTimeout(async () => {
+    try {
+      await DB.set("data", DATA);
+      const kb = Math.round(JSON.stringify(DATA).length / 1024);
+      $("status").textContent = `Đã tự lưu ${new Date().toLocaleTimeString("vi-VN")} · ${kb.toLocaleString("vi-VN")} KB`;
+    } catch (e) { $("status").textContent = "Lỗi lưu: " + e.message; }
+    renderNav();
+  }, 600);
+}
+function toast(t) { const el = $("toast"); el.textContent = t; el.classList.add("on"); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove("on"), 2200); }
+
+// Bổ sung trường còn thiếu khi mở file cũ
+function upgrade(d) {
+  const def = defaultData();
+  for (const k in def) {
+    if (d[k] === undefined) d[k] = def[k];
+    else if (k === "settings") d[k] = Object.assign({}, def.settings, d.settings);
+  }
+  d.meta = Object.assign({}, def.meta, d.meta);
+  if ((d.meta.version || 1) < 2) {
+    // Bản 2: thêm chỉ số mới, dòng phụ mới, đổi độc/lửa sang "tổng trong X giây"
+    const add = (list, items, key) => items.forEach(x => { if (!d[list].some(y => y[key] === x[key])) d[list].push(x); });
+    add("stats", def.stats, "id");
+    add("affixes", def.affixes.filter(a => ["reflect", "manaShield", "manasteal", "bulletConvert", "allSkills"].includes(a.stat)), "stat");
+    const ren = { burnDmg: ["Sát thương Hỏa (đốt máu mỗi giây)", "Sát thương Hỏa (tổng trong 3 giây)"], poisonDmg: ["Sát thương Độc (mỗi giây)", "Sát thương Độc (tổng trong 10 giây)"] };
+    d.stats.forEach(s => { if (ren[s.id] && s.name === ren[s.id][0]) s.name = ren[s.id][1]; });
+    const ep = d.effects.find(e => e.id === "poison");
+    if (ep && ep.valueNote === "Mất máu mỗi giây theo Sát thương Độc") { ep.valueNote = "Tổng Sát thương Độc chia đều trong 10 giây"; if (ep.dur === 5) ep.dur = 10; }
+    const eb = d.effects.find(e => e.id === "burn");
+    if (eb && eb.valueNote === "Mất máu mỗi giây theo Sát thương Hỏa") eb.valueNote = "Tổng Sát thương Hỏa chia đều trong 3 giây";
+    d.slots.forEach(s => { if ((s.id === "weapon" || s.id === "armor") && !(s.main || []).includes("allSkills")) (s.main = s.main || []).push("allSkills"); });
+    d.meta.version = 2;
+  }
+  d.goldBosses.forEach(b => { if (b.goldItemChance === undefined) b.goldItemChance = 10; });
+  // Vũ khí của đường: chữ cũ ("Đao", "Côn (Bổng)"...) đổi sang mã loại vũ khí
+  const wmap = t => /phi/iu.test(t) ? "phidao" : /đao/iu.test(t) ? "dao" : /kiếm/iu.test(t) ? "kiem" : /côn|bổng/iu.test(t) ? "bong" : /quyền|chỉ|chưởng|tay/iu.test(t) ? "quyen" : "";
+  d.sects.forEach(s => ["weapon1", "weapon2"].forEach(k => { if (s[k] && !WEAPON_TYPES.some(w => w.id === s[k])) s[k] = wmap(s[k]); }));
+  d.sects.forEach(applySectBase);
+  return d;
+}
+
+// ---------------- Render ----------------
+function listOf(sec) { return sec.single ? [DATA[sec.key]] : DATA[sec.key]; }
+function visible(sec) {
+  const f = filterState[sec.key] || {};
+  return listOf(sec).filter(it => (sec.filters || []).every(fl => f[fl.k] === undefined || f[fl.k] === "" || String(it[fl.k]) === String(f[fl.k])));
+}
+
+function renderNav() {
+  let g = "", html = "";
+  SECTIONS.forEach(s => {
+    if (s.group !== g) { g = s.group; html += `<div class="g">${g}</div>`; }
+    const n = s.single ? "" : DATA[s.key].length;
+    html += `<button data-sec="${s.key}" class="${s.key === cur ? "on" : ""}">${s.title}<span class="n">${n}</span></button>`;
+  });
+  $("nav").innerHTML = html;
+}
+
+function optionsHtml(opts, val, blank) {
+  let has = false;
+  let h = blank ? `<option value="">${esc(blank)}</option>` : "";
+  h += opts.map(o => { const sel = String(o.v) === String(val); if (sel) has = true; return `<option value="${esc(o.v)}" ${sel ? "selected" : ""}>${esc(o.t)}</option>`; }).join("");
+  if (!has && val !== "" && val != null && !blank) h += `<option value="${esc(val)}" selected>${esc(val)} (không có trong danh sách)</option>`;
+  return h;
+}
+
+function fieldHtml(f, it) {
+  const v = it[f.k];
+  let inner = "";
+  switch (f.t) {
+    case "text": inner = `<input data-k="${f.k}" value="${esc(v)}">`; break;
+    case "num": inner = `<input data-k="${f.k}" type="number" step="any" value="${v ?? 0}">`; break;
+    case "color": inner = `<input data-k="${f.k}" type="color" value="${esc(v || "#ffffff")}">`; break;
+    case "check": inner = `<input data-k="${f.k}" type="checkbox" ${v ? "checked" : ""}>`; break;
+    case "area": inner = `<textarea data-k="${f.k}">${esc(v)}</textarea>`; break;
+    case "select": inner = `<select data-k="${f.k}">${optionsHtml(f.o(it), v, f.blank)}</select>`; break;
+    case "multi": {
+      const set = new Set(v || []);
+      inner = `<div class="chips">${f.o(it).map(o => `<button type="button" class="chip ${set.has(o.v) ? "on" : ""}" data-multi="${f.k}" data-v="${esc(o.v)}">${esc(o.t)}</button>`).join("")}</div>`;
+      break;
+    }
+    case "lines": {
+      const rows = (v || []).map((row, i) => `<div class="line">${f.cols.map(c => c.t === "select"
+        ? `<select data-line="${f.k}" data-i="${i}" data-c="${c.k}">${optionsHtml(c.o(it), row[c.k])}</select>`
+        : `<input data-line="${f.k}" data-i="${i}" data-c="${c.k}" type="number" step="any" value="${row[c.k] ?? 0}" title="${esc(c.l)}">`).join("")}
+        <button type="button" class="x" data-delline="${f.k}" data-i="${i}" title="Xóa dòng">✕</button></div>`).join("");
+      inner = `<div class="lines">${(v || []).length ? `<div class="hd">${f.cols.map(c => `<span style="width:${c.t === "select" ? "260px" : "80px"}">${esc(c.l)}</span>`).join("")}</div>` : ""}
+        ${rows}<div><button type="button" class="btn sm" data-addline="${f.k}">+ Thêm dòng</button></div></div>`;
+      break;
+    }
+  }
+  return `<label class="f ${f.w || "m"}"><span>${esc(f.l)}</span>${inner}</label>`;
+}
+
+function cardHtml(sec, it) {
+  const imgs = (sec.imgs || []).map(im => {
+    const src = it[im.k];
+    return `<div><div class="img ${im.kind === "bg" ? "bg" : ""} ${src ? "has" : ""}" tabindex="0" data-img="${im.k}" data-kind="${im.kind || "icon"}"
+      style="${src ? `background-image:url(${src})` : ""}" title="Bấm chọn rồi Ctrl+V để dán ảnh, kéo thả file vào, hoặc bấm đúp để chọn file">
+      Dán ảnh<br>Ctrl+V<button type="button" class="clr" data-clrimg="${im.k}" title="Xóa ảnh">✕</button></div><div class="img-l">${esc(im.l)}</div></div>`;
+  }).join("");
+  const fields = sec.fields.filter(f => !f.show || f.show(it)).map(f => fieldHtml(f, it)).join("");
+  const acts = sec.single || sec.noAdd ? "" : `<span class="acts"><button type="button" class="btn sm" data-dup="1">Nhân bản</button><button type="button" class="btn sm danger" data-del="1">Xóa</button></span>`;
+  return `<div class="card" data-id="${esc(it.id || "settings")}">${imgs ? `<div class="imgs${sec.imgsWide ? " wide" : ""}">${imgs}</div>` : ""}
+    <div class="body"><div class="head"><span class="ht">${sec.head(it)}</span>${acts}</div><div class="fields">${fields}</div></div></div>`;
+}
+
+function renderMain() {
+  const sec = SEC[cur];
+  const f = filterState[cur] || {};
+  const filters = (sec.filters || []).map(fl => `<label>${esc(fl.l)} <select data-filter="${fl.k}">
+      <option value="">Tất cả</option>${fl.o({}).map(o => `<option value="${esc(o.v)}" ${String(f[fl.k]) === String(o.v) ? "selected" : ""}>${esc(o.t)}</option>`).join("")}</select></label>`).join("");
+  const items = visible(sec);
+  $("main").innerHTML = `<div class="sec-head"><h2>${sec.title}</h2>${sec.single || sec.noAdd ? "" : `<button class="btn sm pri" id="b-add">+ Thêm</button>`}</div>
+    <div class="help">${esc(sec.help)}</div>${filters ? `<div class="filters">${filters}</div>` : ""}
+    <div id="cards">${items.length ? items.map(it => cardHtml(sec, it)).join("") : `<div class="empty">Chưa có dòng nào.</div>`}</div>`;
+  activeImg = null;
+}
+
+function findItem(id) { const sec = SEC[cur]; return sec.single ? DATA[sec.key] : DATA[sec.key].find(x => x.id === id); }
+function rerenderCard(card) {
+  const sec = SEC[cur], it = findItem(card.dataset.id);
+  const tmp = document.createElement("div"); tmp.innerHTML = cardHtml(sec, it);
+  card.replaceWith(tmp.firstElementChild);
+}
+
+// ---------------- Sự kiện ----------------
+$("nav").addEventListener("click", e => {
+  const b = e.target.closest("[data-sec]"); if (!b) return;
+  cur = b.dataset.sec; renderNav(); renderMain(); window.scrollTo(0, 0);
+});
+
+$("main").addEventListener("input", e => {
+  const el = e.target, card = el.closest(".card");
+  if (el.dataset.filter !== undefined) return;
+  if (!card) return;
+  const it = findItem(card.dataset.id), sec = SEC[cur];
+  if (el.dataset.k) {
+    const f = sec.fields.find(x => x.k === el.dataset.k);
+    let v = el.type === "checkbox" ? el.checked : el.value;
+    if (f.t === "num") v = el.value === "" ? 0 : Number(el.value);
+    if (f.t === "select" && typeof (f.o(it)[0] || {}).v === "number") v = Number(v);
+    it[f.k] = v;
+    changed();
+    if (f.rr && e.type === "input" && (f.t === "select" || f.t === "check")) rerenderCard(card);
+    else card.querySelector(".ht").innerHTML = sec.head(it);
+  } else if (el.dataset.line) {
+    const f = sec.fields.find(x => x.k === el.dataset.line);
+    const col = f.cols.find(c => c.k === el.dataset.c);
+    it[f.k][+el.dataset.i][col.k] = col.t === "num" ? Number(el.value || 0) : el.value;
+    changed();
+  }
+});
+$("main").addEventListener("change", e => {
+  const el = e.target;
+  if (el.dataset.filter !== undefined) {
+    const sec = SEC[cur], fl = sec.filters.find(x => x.k === el.dataset.filter);
+    filterState[cur] = filterState[cur] || {};
+    const sample = fl.o({})[0];
+    filterState[cur][fl.k] = el.value === "" ? "" : (sample && typeof sample.v === "number" ? Number(el.value) : el.value);
+    renderMain(); return;
+  }
+  const card = el.closest(".card"); if (!card || !el.dataset.k) return;
+  const f = SEC[cur].fields.find(x => x.k === el.dataset.k);
+  if (f && f.rr && f.t !== "select" && f.t !== "check") rerenderCard(card);
+});
+
+$("main").addEventListener("click", e => {
+  const t = e.target, card = t.closest(".card"), sec = SEC[cur];
+  if (t.id === "b-add") {
+    const it = sec.newItem(filterState[cur] || {});
+    DATA[sec.key].push(it); changed(); renderMain();
+    const c = document.querySelector(`.card[data-id="${it.id}"]`); if (c) { c.scrollIntoView({ block: "center" }); const i = c.querySelector("input"); if (i) i.focus(); }
+    return;
+  }
+  if (!card) return;
+  const it = findItem(card.dataset.id);
+  if (t.dataset.del) {
+    if (!confirm(`Xóa "${it.name || "dòng này"}"?`)) return;
+    DATA[sec.key] = DATA[sec.key].filter(x => x !== it); changed(); renderMain(); return;
+  }
+  if (t.dataset.dup) {
+    const copy = JSON.parse(JSON.stringify(it)); copy.id = uid(sec.key.slice(0, 3)); copy.name = (copy.name || "") + " (bản sao)";
+    DATA[sec.key].splice(DATA[sec.key].indexOf(it) + 1, 0, copy); changed(); renderMain(); return;
+  }
+  if (t.dataset.multi) {
+    const arr = it[t.dataset.multi] = it[t.dataset.multi] || [];
+    const raw = t.dataset.v, i = arr.findIndex(x => String(x) === raw);
+    if (i >= 0) arr.splice(i, 1); else arr.push(raw);
+    t.classList.toggle("on"); changed(); return;
+  }
+  if (t.dataset.addline) {
+    const f = sec.fields.find(x => x.k === t.dataset.addline);
+    const row = {}; f.cols.forEach(c => row[c.k] = c.t === "select" ? (c.o(it)[0] || {}).v : 0);
+    (it[f.k] = it[f.k] || []).push(row); changed(); rerenderCard(card); return;
+  }
+  if (t.dataset.delline) { it[t.dataset.delline].splice(+t.dataset.i, 1); changed(); rerenderCard(card); return; }
+  if (t.dataset.clrimg) { e.stopPropagation(); it[t.dataset.clrimg] = ""; changed(); rerenderCard(card); return; }
+  const im = t.closest("[data-img]");
+  if (im) selectImg(im);
+});
+$("main").addEventListener("dblclick", e => {
+  const im = e.target.closest("[data-img]"); if (!im) return;
+  selectImg(im); $("f-img").value = ""; $("f-img").click();
+});
+$("f-img").addEventListener("change", e => { const f = e.target.files[0]; if (f && activeImg) applyImage(f); });
+
+function selectImg(el) {
+  document.querySelectorAll(".img.active").forEach(x => x.classList.remove("active"));
+  el.classList.add("active"); el.focus();
+  activeImg = { id: el.closest(".card").dataset.id, k: el.dataset.img, kind: el.dataset.kind };
+}
+
+document.addEventListener("paste", e => {
+  if (!activeImg) return;
+  const items = [...(e.clipboardData || {}).items || []];
+  const img = items.find(i => i.type.startsWith("image/"));
+  if (!img) {
+    if (document.activeElement && document.activeElement.matches(".img")) toast("Trong bộ nhớ không có ảnh. Hãy copy chính tấm ảnh (chuột phải → Sao chép hình ảnh), không phải link.");
+    return;
+  }
+  e.preventDefault();
+  applyImage(img.getAsFile());
+});
+$("main").addEventListener("dragover", e => { if (e.target.closest("[data-img]")) e.preventDefault(); });
+$("main").addEventListener("drop", e => {
+  const im = e.target.closest("[data-img]"); if (!im) return;
+  e.preventDefault(); selectImg(im);
+  const f = [...e.dataTransfer.files].find(x => x.type.startsWith("image/"));
+  if (f) applyImage(f); else toast("Chỉ nhận file ảnh.");
+});
+
+// Cắt/thu nhỏ ảnh: icon 128×128 và hình nhân vật 256×256 (giữ tỉ lệ, nền trong suốt), hình nền 960×540 (cắt cho đầy)
+async function applyImage(file) {
+  const target = activeImg; if (!target) return;
+  try {
+    const bmp = await createImageBitmap(file);
+    const icon = target.kind !== "bg";
+    const W = target.kind === "sprite" ? 256 : icon ? 128 : 960, H = target.kind === "sprite" ? 256 : icon ? 128 : 540;
+    const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+    const c = cv.getContext("2d");
+    c.imageSmoothingQuality = "high";
+    const s = icon ? Math.min(W / bmp.width, H / bmp.height) : Math.max(W / bmp.width, H / bmp.height);
+    const w = bmp.width * s, h = bmp.height * s;
+    c.drawImage(bmp, (W - w) / 2, (H - h) / 2, w, h);
+    let url = cv.toDataURL("image/webp", icon ? 0.9 : 0.82);
+    if (!url.startsWith("data:image/webp")) url = cv.toDataURL("image/png");
+    const it = findItem(target.id);
+    if (!it) return;
+    it[target.k] = url; changed();
+    const card = document.querySelector(`.card[data-id="${target.id}"]`);
+    if (card) { rerenderCard(card); const el = document.querySelector(`.card[data-id="${target.id}"] [data-img="${target.k}"]`); if (el) selectImg(el); }
+    toast(`Đã dán ảnh (${Math.round(url.length / 1024)} KB)`);
+  } catch (err) { toast("Không đọc được ảnh: " + err.message); }
+}
+
+// ---------------- Xuất / mở file ----------------
+$("b-export").onclick = () => {
+  DATA.meta.updated = Date.now();
+  const blob = new Blob([JSON.stringify(DATA, null, 1)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = "gamedata.json"; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  toast("Đã xuất gamedata.json");
+};
+$("b-open").onclick = () => { $("f-open").value = ""; $("f-open").click(); };
+$("f-open").addEventListener("change", async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try {
+    const d = JSON.parse(await f.text());
+    if (!d.meta || d.meta.app !== "vlyn" || d.meta.kind !== "gamedata") throw new Error("Không phải file gamedata.json của game");
+    if (!confirm("Mở file này sẽ thay toàn bộ dữ liệu đang có trong form. Tiếp tục?")) return;
+    DATA = upgrade(d); changed(); renderNav(); renderMain(); toast("Đã mở " + f.name);
+  } catch (err) { alert("Không mở được: " + err.message); }
+});
+$("b-reset").onclick = () => {
+  if (!confirm("Xóa hết dữ liệu đang soạn và quay về dữ liệu mẫu? Nên Xuất gamedata.json để sao lưu trước.")) return;
+  DATA = defaultData(); changed(); renderNav(); renderMain();
+};
+
+// ---------------- Khởi động ----------------
+(async () => {
+  try { const d = await DB.get("data"); DATA = d ? upgrade(d) : defaultData(); }
+  catch (e) { DATA = defaultData(); }
+  if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+  renderNav(); renderMain();
+  $("status").textContent = "Dữ liệu tự lưu trên trình duyệt này. Nhớ Xuất gamedata.json để sao lưu.";
+})();
+</script>
+</body>
+</html>
