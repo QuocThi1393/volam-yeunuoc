@@ -149,7 +149,7 @@ function defaultData() {
   const D = { meta: { app: "vlyn", kind: "gamedata", version: 2, updated: Date.now() } };
 
   D.settings = {
-    counterBonus: 15, offlineHours: 24, invSize: 50, invMiscSize: 30, partyHpPer: 25, partyDmgPer: 10, skillGemMul: 1, resetRefund: 100, maxLevel: 99, expBase: 100, expPow: 2.2,
+    counterBonus: 15, offlineHours: 24, invSize: 50, invMiscSize: 30, partyHpPer: 25, partyDmgPer: 10, skillGemMul: 1, skillExtraTiers: 3, skillExtraPoints: 2, skillExtraGemMul: 2, roomDummyHp: 2000000, netRate: 10, resetRefund: 100, maxLevel: 99, expBase: 100, expPow: 2.2,
     mobDropChance: 12, maxOverLevel: 5, bikipMaxLv: 3,
     mpRegenFlat: 5, manaShieldRatio: 1, manaShieldCap: 80, reflectCap: 50,
     rules: "Qua boss map mới mở map kế tiếp. Bí kíp chỉ phái đó đọc được, phái khác bán lấy vàng. Đọc trùng bí kíp để lên cấp (tối đa 3). Skill chuột trái của mọi phái đều theo tốc đánh. Skill chuột phải có hồi chiêu cố định.",
@@ -418,6 +418,7 @@ const SECTIONS = [
       { k: "robe", l: "Màu áo", t: "color", w: "s" }, { k: "enabled", l: "Mở chơi", t: "check", w: "s" },
       { k: "path1", l: "Tên đường 1", t: "text", w: "m" }, { k: "weapon1", l: "Vũ khí đường 1", t: "select", o: O.weaponTypes, w: "m", blank: "— chọn —" },
       { k: "path2", l: "Tên đường 2", t: "text", w: "m" }, { k: "weapon2", l: "Vũ khí đường 2", t: "select", o: O.weaponTypes, w: "m", blank: "— chọn —" },
+      { k: "tabName1", l: "Tên tab kỹ năng đường 1 (trống = tên phái + vũ khí)", t: "text", w: "l" }, { k: "tabName2", l: "Tên tab kỹ năng đường 2 (trống = tên phái + vũ khí)", t: "text", w: "l" },
       { k: "hpBase", l: "Máu cấp 1", t: "num", w: "m" }, { k: "hpLv", l: "Máu + mỗi cấp", t: "num", w: "m" },
       { k: "mpBase", l: "Nội lực cấp 1", t: "num", w: "m" }, { k: "mpLv", l: "Nội lực + mỗi cấp", t: "num", w: "m" },
       { k: "atkBase", l: "Công cấp 1", t: "num", w: "m" }, { k: "atkLv", l: "Công + mỗi cấp", t: "num", w: "m" },
@@ -439,7 +440,7 @@ const SECTIONS = [
     fields: [
       { k: "name", l: "Tên skill", t: "text", w: "l" },
       { k: "mech", l: "Cơ chế", t: "select", o: O.mechs, w: "l", rr: 1, blank: "— chọn —" },
-      { k: "maxLv", l: "Cấp tối đa", t: "num", w: "s" },
+      { k: "maxLv", l: "Cấp tối đa (chưa tính tầng thêm)", t: "num", w: "m" },
       { k: "weapon", l: "Vũ khí cần cầm", t: "select", o: O.weaponTypes, w: "m", blank: "— không cần —" },
       { k: "aspd", l: "Tốc đánh gốc (đòn/giây)", t: "num", w: "m", show: it => it.slot === "lmb" },
       { k: "dmg", l: "Sát thương % công", t: "num", w: "m", show: it => !isPassive(it) },
@@ -705,6 +706,11 @@ const SECTIONS = [
       { k: "invSize", l: "Số ô túi trang bị", t: "num", w: "m" }, { k: "invMiscSize", l: "Số ô túi vật phẩm", t: "num", w: "m" },
       { k: "maxLevel", l: "Cấp tối đa nhân vật", t: "num", w: "m" },
       { k: "skillGemMul", l: "Nâng skill lên cấp n cần (n − 1) × ? viên ngọc nâng skill", t: "num", w: "l" },
+      { k: "skillExtraTiers", l: "Số tầng thêm sau cấp tối đa của skill", t: "num", w: "m" },
+      { k: "skillExtraPoints", l: "Mỗi tầng thêm tốn ? điểm skill", t: "num", w: "m" },
+      { k: "skillExtraGemMul", l: "Mỗi tầng thêm: ngọc nhân ? lần", t: "num", w: "m" },
+      { k: "roomDummyHp", l: "Phòng thử: máu mộc nhân", t: "num", w: "m" },
+      { k: "netRate", l: "Chơi chung: gửi vị trí tối đa ? lần/giây", t: "num", w: "m" },
       { k: "resetRefund", l: "Reset skill hoàn lại % ngọc nâng skill đã dùng", t: "num", w: "l" },
       { k: "expBase", l: "EXP cấp: hệ số", t: "num", w: "m" }, { k: "expPow", l: "EXP cấp: lũy thừa", t: "num", w: "m" },
       { k: "mobDropChance", l: "% quái thường rơi đồ", t: "num", w: "m" },

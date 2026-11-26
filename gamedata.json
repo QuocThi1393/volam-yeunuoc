@@ -3,14 +3,21 @@
   "app": "vlyn",
   "kind": "gamedata",
   "version": 2,
-  "updated": 1795625865023
+  "updated": 1795686287407
  },
  "settings": {
   "counterBonus": 15,
   "offlineHours": 24,
   "invSize": 50,
   "invMiscSize": 30,
+  "partyHpPer": 25,
+  "partyDmgPer": 10,
   "skillGemMul": 1,
+  "skillExtraTiers": 3,
+  "skillExtraPoints": 2,
+  "skillExtraGemMul": 2,
+  "roomDummyHp": 2000000,
+  "netRate": 10,
   "resetRefund": 100,
   "maxLevel": 99,
   "expBase": 100,
@@ -23,9 +30,7 @@
   "manaShieldCap": 80,
   "reflectCap": 50,
   "rules": "Qua boss map mới mở map kế tiếp. Bí kíp chỉ phái đó đọc được, phái khác bán lấy vàng. Đọc trùng bí kíp để lên cấp (tối đa 3). Skill chuột trái của mọi phái đều theo tốc đánh. Skill chuột phải có hồi chiêu cố định. Mọi phái đeo được mọi trang bị; cầm sai loại vũ khí thì không dùng được skill cần vũ khí đó (xem ô Vũ khí cần cầm ở Kỹ năng), các buff vẫn dùng bình thường. Túi đồ chia 2 ngăn: trang bị (bán được) và vật phẩm (không bán được, mua ở cửa hàng hoặc rơi từ boss). Nâng skill tốn điểm skill và Ngộ Đạo Ngọc; reset skill tốn 1 Hoàn Nguyên Ngọc. Vào đánh boss Hoàng Kim tốn 1 Chiến Thư đúng loại.",
-  "note": "Từng Map từng level phải có số lượng kinh nghiệm + vàng trao máy phù hợp với lev map đó. Sao cho thời gian người chơi lên cấp không quá chậm. Ví dụ người chơi lev 15 train map 1- 10 sẽ lên rất chậm so với người chơi lev 15  đã đánh boss map và  train map 10-20. nói chung cân đối lượng kinh nghiệm và tiền nhận được.",
-  "partyHpPer": 25,
-  "partyDmgPer": 10
+  "note": "Từng Map từng level phải có số lượng kinh nghiệm + vàng trao máy phù hợp với lev map đó. Sao cho thời gian người chơi lên cấp không quá chậm. Ví dụ người chơi lev 15 train map 1- 10 sẽ lên rất chậm so với người chơi lev 15  đã đánh boss map và  train map 10-20. nói chung cân đối lượng kinh nghiệm và tiền nhận được."
  },
  "elements": [
   {
@@ -114,7 +119,9 @@
    "defLv": 3,
    "mpRegen": 3,
    "manaShield": 0,
-   "short": "Đỡ đòn, khó chết"
+   "short": "Đỡ đòn, khó chết",
+   "tabName1": "",
+   "tabName2": ""
   },
   {
    "id": "duongmon",
@@ -138,7 +145,9 @@
    "defLv": 2,
    "mpRegen": 3,
    "manaShield": 0,
-   "short": "Bẫy độc, phi đao"
+   "short": "Bẫy độc, phi đao",
+   "tabName1": "",
+   "tabName2": ""
   },
   {
    "id": "vodang",
@@ -162,7 +171,9 @@
    "defLv": 1.5,
    "mpRegen": 4,
    "manaShield": 30,
-   "short": "Khống chế, khiên nội lực"
+   "short": "Khống chế, khiên nội lực",
+   "tabName1": "",
+   "tabName2": ""
   },
   {
    "id": "doanthi",
@@ -186,7 +197,9 @@
    "defLv": 1.5,
    "mpRegen": 3.5,
    "manaShield": 0,
-   "short": "Dồn sát thương, né cao"
+   "short": "Dồn sát thương, né cao",
+   "tabName1": "Đoàn Thị Chỉ",
+   "tabName2": ""
   },
   {
    "id": "caibang",
@@ -210,7 +223,9 @@
    "defLv": 2.5,
    "mpRegen": 3,
    "manaShield": 0,
-   "short": "Sát thương cao, tiên phong"
+   "short": "Sát thương cao, tiên phong",
+   "tabName1": "",
+   "tabName2": ""
   }
  ],
  "skills": [
@@ -1618,7 +1633,7 @@
    "aspd": 0,
    "dmg": 400,
    "dmgLv": 50,
-   "cd": 14,
+   "cd": 13,
    "cdLv": 0.4,
    "mp": 70,
    "dur": 0,
@@ -1851,7 +1866,7 @@
    "aspd": 0,
    "dmg": 500,
    "dmgLv": 60,
-   "cd": 16,
+   "cd": 12,
    "cdLv": 0.4,
    "mp": 75,
    "dur": 1.6,
@@ -3904,7 +3919,7 @@
     },
     {
      "stat": "crit",
-     "base": 2.0,
+     "base": 2,
      "per": 0.01
     }
    ],
@@ -3933,7 +3948,7 @@
     },
     {
      "stat": "crit",
-     "base": 3.0,
+     "base": 3,
      "per": 0.02
     }
    ],
@@ -3962,7 +3977,7 @@
     },
     {
      "stat": "crit",
-     "base": 4.0,
+     "base": 4,
      "per": 0.02
     }
    ],
@@ -3991,7 +4006,7 @@
     },
     {
      "stat": "crit",
-     "base": 5.0,
+     "base": 5,
      "per": 0.03
     }
    ],
@@ -4020,7 +4035,7 @@
     },
     {
      "stat": "crit",
-     "base": 6.0,
+     "base": 6,
      "per": 0.03
     }
    ],
@@ -4049,7 +4064,7 @@
     },
     {
      "stat": "crit",
-     "base": 7.0,
+     "base": 7,
      "per": 0.04
     }
    ],
@@ -4078,7 +4093,7 @@
     },
     {
      "stat": "crit",
-     "base": 8.0,
+     "base": 8,
      "per": 0.04
     }
    ],
@@ -4107,7 +4122,7 @@
     },
     {
      "stat": "crit",
-     "base": 9.0,
+     "base": 9,
      "per": 0.05
     }
    ],
@@ -4135,7 +4150,7 @@
     },
     {
      "stat": "crit",
-     "base": 10.0,
+     "base": 10,
      "per": 0.06
     }
    ],
@@ -4596,7 +4611,7 @@
     },
     {
      "stat": "aspd",
-     "base": 5.0,
+     "base": 5,
      "per": 0.03
     }
    ],
@@ -4768,7 +4783,7 @@
     },
     {
      "stat": "critdmg",
-     "base": 11.0,
+     "base": 11,
      "per": 0.06
     }
    ],
@@ -4797,7 +4812,7 @@
     },
     {
      "stat": "critdmg",
-     "base": 17.0,
+     "base": 17,
      "per": 0.09
     }
    ],
@@ -4826,7 +4841,7 @@
     },
     {
      "stat": "critdmg",
-     "base": 23.0,
+     "base": 23,
      "per": 0.13
     }
    ],
@@ -4855,7 +4870,7 @@
     },
     {
      "stat": "critdmg",
-     "base": 29.0,
+     "base": 29,
      "per": 0.16
     }
    ],
@@ -4884,7 +4899,7 @@
     },
     {
      "stat": "critdmg",
-     "base": 35.0,
+     "base": 35,
      "per": 0.19
     }
    ],
@@ -4913,7 +4928,7 @@
     },
     {
      "stat": "critdmg",
-     "base": 41.0,
+     "base": 41,
      "per": 0.23
     }
    ],
@@ -4942,7 +4957,7 @@
     },
     {
      "stat": "critdmg",
-     "base": 47.0,
+     "base": 47,
      "per": 0.26
     }
    ],
@@ -4971,7 +4986,7 @@
     },
     {
      "stat": "critdmg",
-     "base": 53.0,
+     "base": 53,
      "per": 0.29
     }
    ],
@@ -4999,7 +5014,7 @@
     },
     {
      "stat": "critdmg",
-     "base": 59.0,
+     "base": 59,
      "per": 0.33
     }
    ],
@@ -5299,7 +5314,7 @@
    "main": [
     {
      "stat": "mspd",
-     "base": 5.0,
+     "base": 5,
      "per": 0.01
     },
     {
@@ -5327,7 +5342,7 @@
    "main": [
     {
      "stat": "mspd",
-     "base": 9.0,
+     "base": 9,
      "per": 0.02
     },
     {
@@ -5355,7 +5370,7 @@
    "main": [
     {
      "stat": "mspd",
-     "base": 13.0,
+     "base": 13,
      "per": 0.03
     },
     {
@@ -5383,7 +5398,7 @@
    "main": [
     {
      "stat": "mspd",
-     "base": 17.0,
+     "base": 17,
      "per": 0.04
     },
     {
@@ -5411,7 +5426,7 @@
    "main": [
     {
      "stat": "mspd",
-     "base": 21.0,
+     "base": 21,
      "per": 0.12
     },
     {
@@ -5494,7 +5509,7 @@
    "main": [
     {
      "stat": "crit",
-     "base": 8.0,
+     "base": 8,
      "per": 0.02
     },
     {
@@ -6224,7 +6239,7 @@
    "lvTo": 80,
    "desc": "Trang viên hoa mai bên Tây Hồ, dưới đáy là địa lao giam cường địch.",
    "note": "",
-   "img": "",
+   "img": "data:image/webp;base64,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",
    "bg": ""
   },
   {
@@ -7401,7 +7416,7 @@
     },
     {
      "stat": "aspd",
-     "v": 18.0
+     "v": 18
     },
     {
      "stat": "stunChance",
@@ -7497,7 +7512,7 @@
     },
     {
      "stat": "aspd",
-     "v": 18.0
+     "v": 18
     },
     {
      "stat": "bossDmg",
@@ -7689,7 +7704,7 @@
     },
     {
      "stat": "aspd",
-     "v": 18.0
+     "v": 18
     },
     {
      "stat": "atkPct",

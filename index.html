@@ -53,6 +53,7 @@
       <button data-tab="skill" id="tab-btn-skill">Kỹ năng</button>
       <button data-tab="shop">Cửa hàng</button>
       <button data-tab="market">Chợ</button>
+      <button data-tab="party">Tổ đội</button>
       <button data-tab="admin" id="tab-btn-admin" class="hidden">Admin</button>
       <button id="btn-ctrl">Điều khiển</button>
       <button id="btn-pass">Đổi mật khẩu</button>
@@ -73,16 +74,17 @@
     <div class="panel" id="bag-left"></div>
     <div class="bag-right">
       <div class="panel">
-        <div class="sk-head"><span class="panel-t" id="bag-e-title">Ngăn trang bị</span>
-          <span><label class="chk"><input type="checkbox" id="bag-auto"> Tự bán đồ Thường</label>
+        <div class="subtabs">
+          <button data-bt="eq" id="bag-e-title">Trang bị</button><button data-bt="misc" id="bag-m-title">Vật phẩm</button>
+          <span class="st-fill"></span>
+          <span id="bag-eq-tools"><label class="chk"><input type="checkbox" id="bag-auto"> Tự bán đồ Thường</label>
           <button class="btn ghost small-btn" id="bag-sellall">Bán hết Thường</button>
           <button class="btn ghost small-btn qs1" id="bag-sell1">Bán hết xanh</button>
-          <button class="btn ghost small-btn qs2" id="bag-sell2">Bán hết tím</button></span></div>
+          <button class="btn ghost small-btn qs2" id="bag-sell2">Bán hết tím</button></span>
+          <span id="bag-misc-tools" class="muted small hidden">Không bán được (trừ bí kíp phái khác) · xếp chồng</span>
+        </div>
         <div class="bag-grid" id="bag-grid"></div>
-      </div>
-      <div class="panel">
-        <div class="sk-head"><span class="panel-t" id="bag-m-title">Ngăn vật phẩm</span><span class="muted small">Không bán được (trừ bí kíp phái khác) · xếp chồng</span></div>
-        <div class="bag-grid" id="misc-grid"></div>
+        <div class="bag-grid hidden" id="misc-grid"></div>
       </div>
       <div class="panel" id="bag-detail"></div>
     </div>
@@ -91,6 +93,7 @@
   <div id="tab-skill" class="tab hidden"></div>
   <div id="tab-shop" class="tab hidden"></div>
   <div id="tab-market" class="tab hidden"></div>
+  <div id="tab-party" class="tab hidden"></div>
   <div id="tab-admin" class="tab hidden"></div>
 </section>
 
