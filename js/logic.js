@@ -1,7 +1,6 @@
-// ===== LOGIC: chỉ số, cấp, trang bị, treo máy =====
+// ===== LOGIC: chỉ số, skill, trang bị, treo máy, thưởng, cửa hàng =====
 import {
-  ELEMENTS, GENDERS, SECTS, SKILLS, SKILL_ORDER, MAPS, RARITY, SLOTS, SLOT_ORDER,
-  DROP_WEIGHTS_IDLE, DROP_WEIGHTS_BOSS, INVENTORY_SIZE, OFFLINE_MAX_HOURS, elementBonus
+  GD, S, X, elemBonus, rarityOf, miscByKind, sectPathWeapon, BIKIP_SELL
 } from "./data.js";
 
 export const rand = (a, b) => a + Math.random() * (b - a);
@@ -9,163 +8,181 @@ export const randInt = (a, b) => Math.floor(rand(a, b + 1));
 export const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 export const pick = arr => arr[Math.floor(Math.random() * arr.length)];
 export const fmt = n => Math.round(n).toLocaleString("vi-VN");
+export const fmt1 = n => (Math.round(n * 10) / 10).toLocaleString("vi-VN");
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const PCT_ROUND = v => Math.round(v * 10) / 10;
 
-// ---------- Nhân vật ----------
+export const SAVE_VERSION = 2;
+const CAPS = { crit: 75, dodge: 60, cdr: 50, mspd: 100 };
+
+// ================= NHÂN VẬT =================
 export function newPlayer(name, gender, sect) {
-  const skills = {};
-  SKILL_ORDER.forEach(id => skills[id] = SKILLS[id].base);
-  const equip = {};
-  SLOT_ORDER.forEach(s => equip[s] = null);
   const p = {
-    version: 1, name, gender, sect,
-    level: 1, exp: 0, gold: 0, skillPoints: 1,
-    skills, inventory: [], equip,
-    mapId: MAPS[0].id, autoSellCommon: false,
-    createdAt: Date.now(), lastSeen: Date.now()
+    version: SAVE_VERSION, name, gender, sect,
+    level: 1, exp: 0, gold: 0, skillPoints: 1, gemsSpent: 0,
+    skills: {}, bikip: {},
+    equip: Object.fromEntries(X.slotOrder.map(s => [s, null])),
+    bag: [], misc: {}, books: {},
+    hot: {}, mapId: X.maps[0].id, mapUnlocked: 1, beaten: {},
+    autoSellCommon: false, createdAt: Date.now(), lastSeen: Date.now()
   };
-  // Tặng vũ khí khởi đầu
-  p.equip.weapon = genItem(1, 0, "weapon");
+  // skill chính đường 1 học sẵn cấp 1
+  const lmb = (X.skillOf[sect] && X.skillOf[sect][1] || {}).lmb;
+  if (lmb) p.skills[lmb.id] = 1;
+  // vũ khí khởi đầu của đường 1, cấp thấp nhất
+  const wt = sectPathWeapon(sect, 1);
+  const tpl = GD.items.filter(t => t.slot === "weapon" && t.weaponType === wt).sort((a, b) => a.lvFrom - b.lvFrom)[0];
+  if (tpl) p.equip.weapon = makeItem(tpl, 0, tpl.lvFrom);
+  // quà khởi đầu: vài bình thuốc
+  const hp = miscByKind("hp")[0], mp = miscByKind("mp")[0], cure = miscByKind("cure")[0];
+  if (hp) p.misc[hp.id] = 10;
+  if (mp) p.misc[mp.id] = 10;
+  defaultHotkeys(p);
+  if (cure) p.hot[3] = cure.id;
   return p;
 }
 
-// Bổ sung trường còn thiếu cho save cũ
+export function defaultHotkeys(p) {
+  const firstOwned = kind => (miscByKind(kind).find(m => (p.misc[m.id] || 0) > 0) || miscByKind(kind)[0] || {}).id;
+  if (!p.hot[1]) p.hot[1] = firstOwned("hp");
+  if (!p.hot[2]) p.hot[2] = firstOwned("mp");
+  if (!p.hot[3]) p.hot[3] = firstOwned("cure");
+}
+
+// Bổ sung trường còn thiếu, bỏ đồ không còn trong data
 export function normalizePlayer(p) {
-  p.skills = p.skills || {};
-  SKILL_ORDER.forEach(id => { if (p.skills[id] == null) p.skills[id] = SKILLS[id].base; });
-  p.equip = p.equip || {};
-  SLOT_ORDER.forEach(s => { if (p.equip[s] === undefined) p.equip[s] = null; });
-  p.inventory = p.inventory || [];
-  if (!MAPS.find(m => m.id === p.mapId)) p.mapId = MAPS[0].id;
+  p.skills ||= {}; p.bikip ||= {}; p.misc ||= {}; p.books ||= {}; p.hot ||= {}; p.beaten ||= {};
+  p.bag ||= []; p.equip ||= {};
+  X.slotOrder.forEach(s => { if (p.equip[s] === undefined) p.equip[s] = null; });
+  for (const k in p.skills) if (!X.skill[k]) delete p.skills[k];
+  for (const k in p.misc) if (!X.misc[k]) delete p.misc[k];
+  for (const k in p.books) if (!X.bikip[k]) delete p.books[k];
+  const valid = it => it && (it.gold ? X.goldItem[it.gold] : true);
+  p.bag = p.bag.filter(valid);
+  X.slotOrder.forEach(s => { if (!valid(p.equip[s])) p.equip[s] = null; });
+  if (!X.map[p.mapId]) p.mapId = X.maps[0].id;
+  p.mapUnlocked = Math.max(1, p.mapUnlocked || 1);
+  p.gemsSpent ||= 0;
+  defaultHotkeys(p);
   return p;
 }
 
-export function expToNext(lv) { return Math.floor(100 * Math.pow(lv, 2.2)); }
+export function expToNext(lv) { return Math.floor((S.expBase || 100) * Math.pow(lv, S.expPow || 2.2)); }
 
-export function calcStats(p) {
-  const lv = p.level;
-  const s = {
-    atk: 20 + 6 * (lv - 1), hp: 200 + 40 * (lv - 1), mp: 100 + 10 * (lv - 1),
-    def: 5 + 2 * (lv - 1), crit: 5, speed: 0
-  };
-  SLOT_ORDER.forEach(slot => {
-    const it = p.equip[slot];
-    if (!it) return;
-    for (const k in it.stats) s[k] = (s[k] || 0) + it.stats[k];
-  });
-  // Dịch Cân Kinh: % máu trên tổng sau khi mặc đồ, tối đa 80%
-  const hpBonus = Math.min(0.8, 0.08 * (p.skills.dichcan || 0));
-  s.hpBonus = hpBonus;
-  s.hp = Math.round(s.hp * (1 + hpBonus));
-  s.crit = Math.min(60, s.crit);
-  s.speed = Math.min(50, s.speed);
-  const g = GENDERS[p.gender];
-  s.dmgMul = g.dmgMul; s.spreadDeg = g.spreadDeg; s.idleHit = g.idleHit; s.homing = g.homing;
-  s.element = SECTS[p.sect].element;
-  return s;
-}
-
-// Sát thương 1 phát Nguyệt Đao (chưa tính chí mạng, phòng thủ)
-export function nguyetDaoDamage(p, st) {
-  return st.atk * st.dmgMul * (1 + 0.12 * (p.skills.nguyetdao - 1)) * (1 + 0.05 * p.skills.nguyetanh);
-}
-
-export function reduceByDef(dmg, def) { return dmg * 100 / (100 + def); }
-
-// ---------- Kỹ năng ----------
-export function addSkillPoint(p, id) {
-  const sk = SKILLS[id];
-  if (!sk || p.skillPoints <= 0 || p.skills[id] >= sk.max) return false;
-  p.skills[id]++; p.skillPoints--;
-  return true;
-}
-
-export function resetSkills(p) {
-  SKILL_ORDER.forEach(id => p.skills[id] = SKILLS[id].base);
-  p.skillPoints = p.level;
-}
-
-// ---------- Kinh nghiệm ----------
 export function gainExp(p, amount) {
   p.exp += Math.round(amount);
-  const ups = [];
-  while (p.exp >= expToNext(p.level)) {
+  const ups = [], maxLv = S.maxLevel || 99;
+  while (p.level < maxLv && p.exp >= expToNext(p.level)) {
     p.exp -= expToNext(p.level);
     p.level++; p.skillPoints++;
     ups.push(p.level);
   }
+  if (p.level >= maxLv) p.exp = Math.min(p.exp, expToNext(p.level));
   return ups;
 }
 
-// ---------- Trang bị ----------
-export function rollRarity(weights) {
-  const total = weights.reduce((a, b) => a + b, 0);
-  let r = Math.random() * total;
-  for (let i = 0; i < weights.length; i++) { r -= weights[i]; if (r < 0) return i; }
+// ================= TRANG BỊ =================
+export function itemStats(it) {
+  if (!it) return {};
+  if (it.gold) {
+    const g = X.goldItem[it.gold]; const o = {};
+    (g ? g.stats : []).forEach(s => o[s.stat] = (o[s.stat] || 0) + s.v);
+    return o;
+  }
+  const o = { ...it.main };
+  (it.aff || []).forEach(a => o[a.s] = (o[a.s] || 0) + a.v);
+  return o;
+}
+export function itemImg(it) {
+  if (!it) return "";
+  if (it.gold) return (X.goldItem[it.gold] || {}).img || "";
+  return (X.item[it.tpl] || {}).img || "";
+}
+export function itemWeaponType(it) {
+  if (!it || it.slot !== "weapon") return "";
+  if (it.gold) return (X.goldItem[it.gold] || {}).weaponType || "";
+  return it.wt || (X.item[it.tpl] || {}).weaponType || "";
+}
+export function equippedWeapon(p) { return itemWeaponType(p.equip.weapon); }
+
+function rollStat(stat, v) {
+  if ((X.stat[stat] || {}).unit === "%") return PCT_ROUND(v);
+  return Math.max(1, Math.round(v));
+}
+
+export function makeItem(tpl, rIdx, lv) {
+  const r = rarityOf(rIdx), mul = (r.mul || 100) / 100;
+  const ilv = clamp(Math.round(lv), tpl.lvFrom, tpl.lvTo);
+  const main = {};
+  tpl.main.forEach(m => main[m.stat] = rollStat(m.stat, (m.base + m.per * (ilv - tpl.lvFrom)) * mul));
+  const aff = [];
+  const pool = GD.affixes.filter(a => (!a.slots.length || a.slots.includes(tpl.slot)) && (X.rarIdx[a.minRarity] ?? 0) <= rIdx);
+  const n = r.affix || 0;
+  for (let i = 0; i < n && pool.length; i++) {
+    const k = Math.floor(Math.random() * pool.length);
+    const a = pool.splice(k, 1)[0];
+    let v = (a.base + a.per * ilv) * rand(0.6, 1.0);
+    v = a.stat === "allSkills" ? Math.max(1, Math.round(v)) : rollStat(a.stat, v);
+    aff.push({ s: a.stat, v });
+  }
+  return { id: uid(), tpl: tpl.id, slot: tpl.slot, wt: tpl.weaponType || "", r: rIdx, lv: ilv, name: tpl.name, main, aff };
+}
+
+export function makeGoldItem(g) {
+  return { id: uid(), gold: g.id, slot: g.slot, wt: g.weaponType || "", r: X.goldRar, lv: g.lv, name: g.name, main: {}, aff: [] };
+}
+
+export function rollRarity(source) {
+  const key = source === "mob" ? "wMob" : source === "boss" ? "wBoss" : "wGold";
+  const w = X.rarity.map((r, i) => (i === X.goldRar ? 0 : Math.max(0, r[key] || 0)));
+  const total = w.reduce((a, b) => a + b, 0);
+  if (total <= 0) return 0;
+  let x = Math.random() * total;
+  for (let i = 0; i < w.length; i++) { x -= w[i]; if (x < 0) return i; }
   return 0;
 }
 
-const AFFIX_POOL = {
-  atk: lv => 1 + 1.5 * lv, hp: lv => 10 + 6 * lv, def: lv => 1 + 0.8 * lv,
-  crit: lv => 1 + 0.08 * lv, mp: lv => 5 + 2 * lv, speed: lv => 1 + 0.1 * lv
-};
-
-export function genItem(lv, rarity, slot) {
-  slot = slot || pick(SLOT_ORDER);
-  lv = Math.max(1, Math.round(lv));
-  const tier = Math.min(4, Math.floor((lv - 1) / 10));
-  const m = RARITY[rarity].mul;
-  const st = {};
-  const add = (k, v) => { v = Math.max(1, Math.round(v)); st[k] = (st[k] || 0) + v; };
-  switch (slot) {
-    case "weapon": add("atk", (6 + 4 * lv) * m); break;
-    case "hat": add("hp", (20 + 10 * lv) * m); add("def", (2 + lv) * m); break;
-    case "armor": add("hp", (35 + 16 * lv) * m); add("def", (3 + 1.5 * lv) * m); break;
-    case "boots": add("speed", (3 + 0.2 * lv) * m); add("def", (1 + 0.6 * lv) * m); break;
-    case "ring": add("crit", (2 + 0.12 * lv) * m); add("atk", (2 + 1.5 * lv) * m); break;
-    case "necklace": add("mp", (10 + 4 * lv) * m); add("hp", (15 + 8 * lv) * m); break;
+export function genItem(lv, source) {
+  let tpls = GD.items.filter(t => t.sources.includes(source) && t.lvFrom <= lv && lv <= t.lvTo);
+  if (!tpls.length) {   // không có mẫu đúng cấp: lấy bậc cao nhất thấp hơn cấp
+    const lower = GD.items.filter(t => t.lvFrom <= lv);
+    const best = {};
+    lower.forEach(t => { const k = t.slot + (t.weaponType || ""); if (!best[k] || best[k].lvFrom < t.lvFrom) best[k] = t; });
+    tpls = Object.values(best);
   }
-  const keys = Object.keys(AFFIX_POOL);
-  for (let i = 0; i < RARITY[rarity].affix; i++) {
-    const k = pick(keys);
-    add(k, AFFIX_POOL[k](lv) * rand(0.6, 1.0));
-  }
-  return {
-    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
-    slot, rarity, lv, name: SLOTS[slot].names[tier], stats: st
-  };
+  if (!tpls.length) return null;
+  return makeItem(pick(tpls), rollRarity(source), lv);
 }
 
-export function itemScore(it) {
-  if (!it) return 0;
-  const s = it.stats;
-  return (s.atk || 0) * 3 + (s.hp || 0) * 0.5 + (s.def || 0) * 2 + (s.mp || 0) * 0.3 +
-         (s.crit || 0) * 8 + (s.speed || 0) * 4;
+export function sellPrice(it) {
+  if (it.gold) return Math.round(it.lv * 400);
+  return Math.round((it.lv * 3 + 5) * Math.pow(it.r + 1, 2));
 }
 
-export function sellPrice(it) { return Math.round((it.lv * 3 + 5) * Math.pow(it.rarity + 1, 2)); }
+export function canEquipLevel(p, it) { return it.lv <= p.level + (S.maxOverLevel ?? 5); }
 
-// Thêm đồ vào túi. Trả về {kept:true} hoặc {kept:false, gold}
-export function addItem(p, it) {
-  if ((p.autoSellCommon && it.rarity === 0) || p.inventory.length >= INVENTORY_SIZE) {
+export function addItem(p, it, logs) {
+  const full = p.bag.length >= (S.invSize || 40);
+  if ((p.autoSellCommon && it.r === 0 && !it.gold) || full) {
     const g = sellPrice(it); p.gold += g;
     return { kept: false, gold: g };
   }
-  p.inventory.push(it);
+  p.bag.push(it);
   return { kept: true };
 }
 
 export function sellItem(p, id) {
-  const i = p.inventory.findIndex(x => x.id === id);
+  const i = p.bag.findIndex(x => x.id === id);
   if (i < 0) return 0;
-  const g = sellPrice(p.inventory[i]);
-  p.inventory.splice(i, 1); p.gold += g;
+  const g = sellPrice(p.bag[i]);
+  p.bag.splice(i, 1); p.gold += g;
   return g;
 }
 
 export function sellAllCommon(p) {
   let g = 0, n = 0;
-  p.inventory = p.inventory.filter(it => {
-    if (it.rarity === 0) { g += sellPrice(it); n++; return false; }
+  p.bag = p.bag.filter(it => {
+    if (it.r === 0 && !it.gold) { g += sellPrice(it); n++; return false; }
     return true;
   });
   p.gold += g;
@@ -173,143 +190,437 @@ export function sellAllCommon(p) {
 }
 
 export function equipItem(p, id) {
-  const i = p.inventory.findIndex(x => x.id === id);
-  if (i < 0) return false;
-  const it = p.inventory[i];
-  if (it.lv > p.level + 5) return false; // đồ quá cấp
+  const i = p.bag.findIndex(x => x.id === id);
+  if (i < 0) return "Không tìm thấy món đồ.";
+  const it = p.bag[i];
+  if (!canEquipLevel(p, it)) return `Cần cấp ${it.lv - (S.maxOverLevel ?? 5)} để mặc.`;
   const old = p.equip[it.slot];
-  p.inventory.splice(i, 1);
-  if (old) p.inventory.push(old);
+  p.bag.splice(i, 1);
+  if (old) p.bag.push(old);
   p.equip[it.slot] = it;
-  return true;
+  return "";
 }
 
 export function unequip(p, slot) {
   const it = p.equip[slot];
-  if (!it || p.inventory.length >= INVENTORY_SIZE) return false;
-  p.equip[slot] = null; p.inventory.push(it);
+  if (!it) return "";
+  if (p.bag.length >= (S.invSize || 40)) return "Túi trang bị đã đầy.";
+  p.equip[slot] = null; p.bag.push(it);
+  return "";
+}
+
+// ================= TÚI VẬT PHẨM =================
+export function miscSlotsUsed(p) {
+  let n = 0;
+  for (const id in p.misc) { const m = X.misc[id]; if (m && p.misc[id] > 0) n += Math.ceil(p.misc[id] / Math.max(1, m.stack || 1)); }
+  for (const id in p.books) if (p.books[id] > 0) n += 1;
+  return n;
+}
+export function miscSpaceFor(p, id, qty) {
+  const m = X.misc[id]; if (!m) return false;
+  const st = Math.max(1, m.stack || 1), have = p.misc[id] || 0;
+  const extra = Math.ceil((have + qty) / st) - Math.ceil(have / st);
+  return miscSlotsUsed(p) + extra <= (S.invMiscSize || 30);
+}
+export function addMisc(p, id, qty) {
+  if (!miscSpaceFor(p, id, qty)) return false;
+  p.misc[id] = (p.misc[id] || 0) + qty;
+  return true;
+}
+export function useMisc(p, id, qty = 1) {
+  if ((p.misc[id] || 0) < qty) return false;
+  p.misc[id] -= qty;
+  if (p.misc[id] <= 0) delete p.misc[id];
+  return true;
+}
+export function countKind(p, kind) { return miscByKind(kind).reduce((a, m) => a + (p.misc[m.id] || 0), 0); }
+function useKind(p, kind, qty) {
+  let need = qty;
+  for (const m of miscByKind(kind)) {
+    const take = Math.min(need, p.misc[m.id] || 0);
+    if (take) { useMisc(p, m.id, take); need -= take; }
+    if (!need) break;
+  }
+  return need === 0;
+}
+export function addBook(p, bkId) {
+  if (!p.books[bkId] && miscSlotsUsed(p) + 1 > (S.invMiscSize || 30)) return false;
+  p.books[bkId] = (p.books[bkId] || 0) + 1;
   return true;
 }
 
-// ---------- Quái ----------
-export function monsterStats(lv) {
+export function buy(p, id, qty) {
+  const m = X.misc[id];
+  qty = Math.max(1, Math.round(qty || 1));
+  if (!m || !m.shop) return "Món này không bán ở cửa hàng.";
+  const cost = (m.price || 0) * qty;
+  if (cost > p.gold) return `Không đủ vàng: cần ${fmt(cost)}.`;
+  if (!addMisc(p, id, qty)) return "Túi vật phẩm đã đầy.";
+  p.gold -= cost;
+  return "";
+}
+
+// ================= BÍ KÍP =================
+export function readBook(p, bkId) {
+  const b = X.bikip[bkId];
+  if (!b || !p.books[bkId]) return "Không có bí kíp này.";
+  if (b.sect !== p.sect) return "Bí kíp phái khác, chỉ bán được.";
+  const lv = p.bikip[bkId] || 0;
+  if (lv >= (b.maxLv || S.bikipMaxLv || 3)) return "Bí kíp đã đạt cấp tối đa.";
+  p.books[bkId]--; if (p.books[bkId] <= 0) delete p.books[bkId];
+  p.bikip[bkId] = lv + 1;
+  return "";
+}
+export function sellBook(p, bkId) {
+  const b = X.bikip[bkId];
+  if (!b || !p.books[bkId]) return 0;
+  p.books[bkId]--; if (p.books[bkId] <= 0) delete p.books[bkId];
+  const g = BIKIP_SELL[b.tier] || 1000; p.gold += g;
+  return g;
+}
+
+// ================= KỸ NĂNG =================
+export function skillBonusLevels(p) {
+  const out = {}; let all = 0;
+  X.slotOrder.forEach(s => {
+    const it = p.equip[s]; if (!it) return;
+    all += itemStats(it).allSkills || 0;
+    if (it.gold) {
+      const g = X.goldItem[it.gold];
+      if (g && g.sect === p.sect) (g.skills || []).forEach(x => out[x.skill] = (out[x.skill] || 0) + x.lv);
+    }
+  });
+  return { all, per: out };
+}
+
+export function skillLevel(p, id, bonus) {
+  const base = p.skills[id] || 0;
+  if (!base) return 0;
+  bonus ||= skillBonusLevels(p);
+  return base + bonus.all + (bonus.per[id] || 0);
+}
+
+// Số liệu skill ở cấp hiện tại (đã cộng bị động). Trả null nếu chưa học.
+export function skillCalc(p, id, st, bonus) {
+  const sk = X.skill[id]; if (!sk) return null;
+  const lv = skillLevel(p, id, bonus);
+  if (!lv) return null;
+  const L = lv - 1;
+  const bst = { dmg: 0, aspd: 0, cd: 0, size: 0, dur: 0, count: 0, mp: 0, effectChance: 0, crit: 0, critdmg: 0 };
+  GD.skills.forEach(ps => {
+    if (ps.sect !== sk.sect || ps.target !== id || (ps.slot !== "p1" && ps.slot !== "p2")) return;
+    const pl = skillLevel(p, ps.id, bonus);
+    if (pl) (ps.boosts || []).forEach(b => bst[b.attr] = (bst[b.attr] || 0) + b.per * pl);
+  });
+  const aspdStat = st ? st.aspd || 0 : 0, cdr = st ? st.cdr || 0 : 0;
+  return {
+    sk, id, lv,
+    dmg: (sk.dmg + sk.dmgLv * L) * (1 + bst.dmg / 100),
+    flat: (sk.flatDmg || 0) + (sk.flatDmgLv || 0) * L,
+    aspd: sk.aspd * (1 + (bst.aspd + aspdStat) / 100),
+    cd: sk.cd ? Math.max(0.5, (sk.cd - sk.cdLv * L) * (1 + bst.cd / 100) * (1 - cdr / 100)) : 0,
+    mp: Math.max(0, Math.round(sk.mp * (1 + bst.mp / 100))),
+    dur: (sk.dur + sk.durLv * L) * (1 + bst.dur / 100),
+    size: (sk.size + sk.sizeLv * L) * (1 + bst.size / 100),
+    count: Math.max(1, Math.floor(sk.count + sk.countLv * L + bst.count + 1e-9)),
+    effect: sk.effect || "",
+    effectChance: sk.effectChance + sk.effectChanceLv * L + bst.effectChance,
+    crit: bst.crit, critdmg: bst.critdmg,
+    stats: (sk.stats || []).map(x => ({ stat: x.stat, v: x.base + x.per * L }))
+  };
+}
+
+// Đường đang dùng = đường có vũ khí trùng vũ khí đang cầm
+export function activePath(p) {
+  const w = equippedWeapon(p), s = X.sect[p.sect];
+  if (s && w && s.weapon2 === w && s.weapon1 !== w) return 2;
+  return 1;
+}
+export function weaponOk(p, sk) { return !sk.weapon || sk.weapon === equippedWeapon(p); }
+
+export function upgradeCost(p, id) {
+  const lv = p.skills[id] || 0;
+  return { points: 1, gems: lv === 0 ? 0 : lv * (S.skillGemMul ?? 1) };
+}
+export function upgradeSkill(p, id) {
+  const sk = X.skill[id];
+  if (!sk || sk.sect !== p.sect) return "Không phải skill của phái.";
+  const lv = p.skills[id] || 0;
+  if (lv >= sk.maxLv) return "Đã đạt cấp tối đa.";
+  const c = upgradeCost(p, id);
+  if (p.skillPoints < c.points) return "Hết điểm skill. Lên cấp để có thêm điểm.";
+  if (countKind(p, "skillup") < c.gems) return `Thiếu ngọc: cần ${c.gems} viên ${(miscByKind("skillup")[0] || {}).name || "ngọc nâng skill"}.`;
+  if (c.gems) useKind(p, "skillup", c.gems);
+  p.skillPoints -= c.points; p.gemsSpent += c.gems;
+  p.skills[id] = lv + 1;
+  return "";
+}
+export function resetSkills(p) {
+  if (countKind(p, "reset") < 1) return `Cần 1 ${(miscByKind("reset")[0] || {}).name || "ngọc reset"} (mua ở cửa hàng).`;
+  const gemsBack = Math.floor(p.gemsSpent * (S.resetRefund ?? 100) / 100);
+  const gem = miscByKind("skillup")[0];
+  if (gemsBack && gem && !miscSpaceFor(p, gem.id, gemsBack)) return "Túi vật phẩm đầy, không trả lại ngọc được.";
+  useKind(p, "reset", 1);
+  if (gemsBack && gem) addMisc(p, gem.id, gemsBack);
+  p.skills = {}; p.gemsSpent = 0;
+  p.skillPoints = p.level + 1;
+  return "";
+}
+
+// ================= CHỈ SỐ =================
+export function calcStats(p, extra) {
+  const sect = X.sect[p.sect], lv = p.level, g = X.gender[p.gender] || {};
+  const s = {
+    atk: sect.atkBase + sect.atkLv * (lv - 1), hp: sect.hpBase + sect.hpLv * (lv - 1),
+    mp: sect.mpBase + sect.mpLv * (lv - 1), def: sect.defBase + sect.defLv * (lv - 1),
+    crit: 5, critdmg: 0
+  };
+  const add = (k, v) => { s[k] = (s[k] || 0) + v; };
+  X.slotOrder.forEach(sl => { const st = itemStats(p.equip[sl]); for (const k in st) add(k, st[k]); });
+  for (const id in p.bikip) {
+    const b = X.bikip[id], l = p.bikip[id];
+    if (b && l > 0) b.stats.forEach(x => add(x.stat, x["v" + Math.min(3, l)] || 0));
+  }
+  const bonus = skillBonusLevels(p);
+  GD.skills.forEach(sk => {      // bị động cộng chỉ số
+    if (sk.sect !== p.sect || sk.mech !== "passive_stat") return;
+    const l = skillLevel(p, sk.id, bonus);
+    if (l) (sk.stats || []).forEach(x => add(x.stat, x.base + x.per * (l - 1)));
+  });
+  if (extra) for (const k in extra) add(k, extra[k]);
+  s.hp = Math.round(s.hp * (1 + (s.hpPct || 0) / 100));
+  s.mp = Math.round(s.mp * (1 + (s.mpPct || 0) / 100));
+  s.atk = Math.round(s.atk * (1 + (s.atkPct || 0) / 100));
+  s.def = Math.round(s.def * (1 + (s.defPct || 0) / 100));
+  for (const k in CAPS) if (s[k] > CAPS[k]) s[k] = CAPS[k];
+  s.manaShield = Math.min(S.manaShieldCap ?? 80, (sect.manaShield || 0) + (s.manaShield || 0));
+  s.reflect = Math.min(S.reflectCap ?? 50, s.reflect || 0);
+  s.mpRegenSec = (S.mpRegenFlat ?? 5) + (sect.mpRegen || 0) * s.mp / 100 + (s.mpregen || 0);
+  s.hpRegenSec = s.hpregen || 0;
+  s.dmgBonus = g.dmgBonus || 0; s.spread = g.spread ?? 10; s.idleHit = (g.idleHit ?? 90) / 100; s.homing = !!g.homing;
+  s.element = sect.element;
+  return s;
+}
+
+// Giảm sát thương theo phòng thủ, có tính cấp người đánh
+export function mitigate(def, attackerLv) { return 1 - def / (def + 10 * attackerLv + 100); }
+
+export function critRoll(st, sc) { return Math.random() * 100 < (st.crit || 0) + (sc ? sc.crit : 0); }
+export function critMul(st, sc) { return 1.5 + ((st.critdmg || 0) + (sc ? sc.critdmg : 0)) / 100; }
+
+// Sát thương 1 đòn skill lên mục tiêu (chưa trừ phòng thủ)
+export function rawSkillDamage(st, sc, targetElem, isBoss) {
+  let d = st.atk * sc.dmg / 100 + sc.flat;
+  d *= 1 + (st.dmgBonus || 0) / 100;
+  const eb = elemBonus(st.element, targetElem);
+  if (eb > 1) d *= eb + (st.counterDmg || 0) / 100;
+  if (isBoss) d *= 1 + (st.bossDmg || 0) / 100;
+  return d;
+}
+
+export function damageTaken(raw, attElem, attLv, st) {
+  let d = raw;
+  const eb = elemBonus(attElem, st.element);
+  if (eb > 1) d *= Math.max(1, eb - (st.counterRes || 0) / 100);
+  return d * mitigate(st.def, attLv);
+}
+
+// ================= MAP & QUÁI =================
+export function getMap(id) { return X.map[id] || X.maps[0]; }
+export function mapUnlocked(p, map) { return map.order <= p.mapUnlocked; }
+
+export function monsterBase(lv) {
   return { hp: 50 + 28 * lv, atk: 6 + 5 * lv, def: 2 + 1.5 * lv, exp: 10 + 8 * lv, gold: 3 + 2 * lv };
 }
-
-export function getMap(id) { return MAPS.find(m => m.id === id) || MAPS[0]; }
-
+export function levelPenalty(pLv, mLv) {
+  const d = pLv - mLv;
+  return d <= 3 ? 1 : Math.max(0.1, 1 - 0.15 * (d - 3));
+}
 export function spawnMonster(p) {
   const map = getMap(p.mapId);
-  const lv = clamp(randInt(p.level - 2, p.level + 1), map.min, map.max);
-  const ms = monsterStats(lv);
-  return { name: pick(map.monsters), lv, element: map.element, hp: ms.hp, maxHp: ms.hp, ...ms };
+  const lv = clamp(randInt(p.level - 2, p.level + 1), map.lvFrom, map.lvTo);
+  const kinds = X.monOf[map.id] || [{ name: "Thổ phỉ", element: map.element, hpMul: 100, atkMul: 100, expMul: 100 }];
+  const k = pick(kinds), b = monsterBase(lv), pen = levelPenalty(p.level, lv);
+  const hp = Math.round(b.hp * k.hpMul / 100);
+  return {
+    id: k.id, name: k.name, img: k.img || "", lv, element: k.element || map.element, hp, maxHp: hp,
+    atk: b.atk * k.atkMul / 100, def: b.def,
+    exp: Math.round(b.exp * (k.expMul || 100) / 100 * pen), gold: Math.round(b.gold * pen), pen
+  };
 }
 
-export function idleInterval(p) { return 1200 / (1 + 0.04 * (p.skills.nguyetanh || 0)); }
+// Skill chuột trái đang dùng được (theo vũ khí). null = đánh tay không
+export function idleAttack(p, st) {
+  const path = activePath(p);
+  const sk = (X.skillOf[p.sect] && X.skillOf[p.sect][path] || {}).lmb;
+  if (sk && p.skills[sk.id] && weaponOk(p, sk)) return skillCalc(p, sk.id, st);
+  return { sk: { name: "Đánh tay không" }, dmg: 50, flat: 0, aspd: 1, crit: 0, critdmg: 0, effectChance: 0, effect: "" };
+}
 
-// Một lượt đánh treo máy. state = {mon, hp, restUntil}. Trả về {logs:[], changed}
+export const IDLE_TICK = 1200;
+
+// 1 lượt treo máy (1,2 giây). state = {mon, hp, restUntil}
 export function idleRound(p, state, now) {
   const logs = [];
   const st = calcStats(p);
   if (state.hp == null || state.hp > st.hp) state.hp = st.hp;
   if (state.restUntil && now < state.restUntil) return { logs, changed: false };
   if (state.restUntil) { state.restUntil = 0; state.hp = st.hp; logs.push({ t: "Hồi phục xong, tiếp tục luyện công.", c: "info" }); }
-  if (!state.mon) { state.mon = spawnMonster(p); logs.push({ t: `Gặp ${state.mon.name} Lv${state.mon.lv} (${ELEMENTS[state.mon.element].name})`, c: "dim" }); return { logs, changed: false }; }
-
-  const mon = state.mon;
-  // Người chơi đánh
-  if (Math.random() < st.idleHit) {
-    const eb = elementBonus(st.element, mon.element);
-    let dmg = reduceByDef(nguyetDaoDamage(p, st) * eb, mon.def) * rand(0.9, 1.1);
-    const crit = Math.random() * 100 < st.crit;
-    if (crit) dmg *= 1.5;
-    dmg = Math.max(1, Math.round(dmg));
-    mon.hp -= dmg;
-    logs.push({ t: `Nguyệt Đao chém ${mon.name} -${fmt(dmg)}${crit ? " (chí mạng)" : ""}${eb > 1 ? " (khắc +15%)" : ""}`, c: crit ? "crit" : "" });
-  } else {
-    logs.push({ t: `Đánh trượt ${mon.name}`, c: "dim" });
+  if (!state.mon) {
+    state.mon = spawnMonster(p);
+    const m = state.mon;
+    logs.push({ t: `Gặp ${m.name} Lv${m.lv}${m.pen < 1 ? ` (quái thấp cấp, kinh nghiệm còn ${Math.round(m.pen * 100)}%)` : ""}`, c: "dim" });
+    return { logs, changed: false };
   }
-  let changed = false;
+  const mon = state.mon, sc = idleAttack(p, st);
+  const hits = Math.max(1, Math.round(sc.aspd * IDLE_TICK / 1000));
+  let total = 0, crits = 0, landed = 0;
+  for (let i = 0; i < hits; i++) {
+    if (Math.random() > st.idleHit) continue;
+    landed++;
+    let d = rawSkillDamage(st, sc, mon.element, false) * mitigate(mon.def, p.level) * rand(0.9, 1.1);
+    if (critRoll(st, sc)) { d *= critMul(st, sc); crits++; }
+    total += d;
+  }
+  total = Math.round(total);
+  if (landed) {
+    mon.hp -= total;
+    if (st.lifesteal) state.hp = Math.min(st.hp, state.hp + total * st.lifesteal / 100);
+    logs.push({ t: `${sc.sk.name}${landed > 1 ? " ×" + landed : ""} trúng ${mon.name} -${fmt(total)}${crits ? ` (${crits} chí mạng)` : ""}`, c: crits ? "crit" : "" });
+  } else logs.push({ t: `Đánh trượt ${mon.name}`, c: "dim" });
+
   if (mon.hp <= 0) {
     const ups = gainExp(p, mon.exp);
     p.gold += mon.gold;
     logs.push({ t: `Tiêu diệt ${mon.name} · +${fmt(mon.exp)} EXP · +${fmt(mon.gold)} vàng`, c: "good" });
-    if (Math.random() < 0.12) {
-      const it = genItem(mon.lv, rollRarity(DROP_WEIGHTS_IDLE));
-      const r = addItem(p, it);
-      logs.push(r.kept
-        ? { t: `Nhặt được [${RARITY[it.rarity].name}] ${it.name}`, c: "r" + it.rarity }
-        : { t: `Tự bán [${RARITY[it.rarity].name}] ${it.name} +${r.gold} vàng`, c: "dim" });
+    if (Math.random() * 100 < (S.mobDropChance ?? 12)) {
+      const it = genItem(mon.lv, "mob");
+      if (it) {
+        const r = addItem(p, it);
+        const rn = rarityOf(it.r).name;
+        logs.push(r.kept ? { t: `Nhặt được [${rn}] ${it.name} Lv${it.lv}`, c: "r" + it.r }
+          : { t: `Tự bán [${rn}] ${it.name} +${fmt(r.gold)} vàng`, c: "dim" });
+      }
     }
-    ups.forEach(lv => logs.push({ t: `Lên cấp ${lv}! +1 điểm kỹ năng`, c: "level" }));
+    ups.forEach(lv => logs.push({ t: `Lên cấp ${lv}! +1 điểm skill`, c: "level" }));
     state.mon = null;
-    state.hp = Math.min(calcStats(p).hp, state.hp + calcStats(p).hp * 0.15);
-    changed = true;
-    return { logs, changed, levelUp: ups.length > 0 };
+    state.hp = Math.min(st.hp, state.hp + st.hp * 0.15);
+    return { logs, changed: true, levelUp: ups.length > 0 };
   }
-  // Quái đánh lại
-  const eb2 = elementBonus(mon.element, st.element);
-  const mdmg = Math.max(1, Math.round(reduceByDef(mon.atk * eb2, st.def) * rand(0.85, 1.15)));
-  state.hp -= mdmg;
-  logs.push({ t: `Bị ${mon.name} đánh -${fmt(mdmg)}`, c: "bad" });
+  // quái đánh lại
+  if (Math.random() * 100 < (st.dodge || 0)) {
+    logs.push({ t: `Né được đòn của ${mon.name}`, c: "info" });
+  } else {
+    const md = Math.max(1, Math.round(damageTaken(mon.atk, mon.element, mon.lv, st) * rand(0.85, 1.15)));
+    state.hp -= md;
+    logs.push({ t: `Bị ${mon.name} đánh -${fmt(md)}`, c: "bad" });
+  }
   if (state.hp <= 0) {
     state.hp = 0; state.mon = null; state.restUntil = now + 8000;
     logs.push({ t: "Trọng thương! Nghỉ 8 giây để hồi phục...", c: "bad" });
   } else {
-    state.hp = Math.min(st.hp, state.hp + st.hp * 0.03);
+    state.hp = Math.min(st.hp, state.hp + st.hp * 0.03 + st.hpRegenSec * IDLE_TICK / 1000);
   }
-  return { logs, changed };
+  return { logs, changed: false };
 }
 
-// ---------- Treo máy offline ----------
+// Treo máy khi vắng mặt: ước tính theo tốc độ hạ quái trung bình
 export function offlineGains(p, seconds) {
-  seconds = Math.min(seconds, OFFLINE_MAX_HOURS * 3600);
-  const map = getMap(p.mapId);
-  const st = calcStats(p);
-  const lv = clamp(p.level, map.min, map.max);
-  const ms = monsterStats(lv);
-  const eb = elementBonus(st.element, map.element);
-  const dmg = reduceByDef(nguyetDaoDamage(p, st) * eb, ms.def) * st.idleHit * (1 + st.crit / 100 * 0.5);
-  const rounds = Math.ceil(ms.hp / Math.max(1, dmg));
-  const timePerKill = rounds * idleInterval(p) / 1000 + 1.2;
-  const taken = reduceByDef(ms.atk * elementBonus(map.element, st.element), st.def) * rounds;
+  seconds = Math.min(seconds, (S.offlineHours ?? 8) * 3600);
+  const map = getMap(p.mapId), st = calcStats(p), sc = idleAttack(p, st);
+  const lv = clamp(p.level, map.lvFrom, map.lvTo), b = monsterBase(lv), pen = levelPenalty(p.level, lv);
+  const per = rawSkillDamage(st, sc, map.element, false) * mitigate(b.def, p.level) * st.idleHit
+    * (1 + Math.min(75, st.crit || 0) / 100 * (critMul(st, sc) - 1));
+  const dps = per * Math.max(1, Math.round(sc.aspd * IDLE_TICK / 1000)) / (IDLE_TICK / 1000);
+  const t = b.hp / Math.max(1, dps) + IDLE_TICK / 1000 * 2;
+  const taken = damageTaken(b.atk, map.element, lv, st) * (b.hp / Math.max(1, dps)) / (IDLE_TICK / 1000);
   const eff = taken > st.hp * 0.9 ? 0.4 : 1;
-  const kills = Math.floor(seconds / timePerKill * eff);
+  const kills = Math.floor(seconds / t * eff);
   const res = { seconds, kills, exp: 0, gold: 0, levels: [], kept: [], sold: 0, soldGold: 0 };
   if (kills <= 0) return res;
-  res.exp = kills * ms.exp; res.gold = kills * ms.gold;
+  res.exp = Math.round(kills * b.exp * pen); res.gold = Math.round(kills * b.gold * pen);
   p.gold += res.gold;
   res.levels = gainExp(p, res.exp);
-  const drops = Math.min(300, Math.round(kills * 0.12));
+  const drops = Math.min(300, Math.round(kills * (S.mobDropChance ?? 12) / 100));
   for (let i = 0; i < drops; i++) {
-    const it = genItem(lv, rollRarity(DROP_WEIGHTS_IDLE));
-    if (it.rarity >= 1 && p.inventory.length < INVENTORY_SIZE && !(p.autoSellCommon && it.rarity === 0)) {
-      p.inventory.push(it); res.kept.push(it);
-    } else {
-      const g = sellPrice(it); p.gold += g; res.sold++; res.soldGold += g;
-    }
+    const it = genItem(lv, "mob"); if (!it) continue;
+    const keep = it.r >= 1 && p.bag.length < (S.invSize || 40);
+    if (keep) { p.bag.push(it); res.kept.push(it); }
+    else { const g = sellPrice(it); p.gold += g; res.sold++; res.soldGold += g; }
   }
   return res;
 }
 
-// ---------- Boss ----------
-export function bossStats(map) {
-  const lv = map.max;
-  return { lv, hp: 150 * lv * lv + 4000, atk: 15 + 10 * lv, def: 3 + 2 * lv, element: map.element, name: map.boss };
+// ================= BOSS =================
+export function bossCanFight(p, kind, b) {
+  if (kind === "map") return mapUnlocked(p, getMap(b.map)) ? "" : "Chưa mở map này.";
+  const m = X.map[b.unlock];
+  if (m && !mapUnlocked(p, m)) return `Mở ${m.name} trước.`;
+  const tk = miscByKind("ticket").find(t => t.bossTier === b.tier);
+  if (tk && !(p.misc[tk.id] > 0)) return `Cần 1 ${tk.name} (mua ở cửa hàng).`;
+  return "";
+}
+export function ticketFor(b) { return miscByKind("ticket").find(t => t.bossTier === b.tier); }
+
+function dropMisc(p, source, out) {
+  (GD.misc || []).forEach(m => {
+    if (!(m.sources || []).includes(source) || !(Math.random() * 100 < (m.dropChance || 0))) return;
+    const q = Math.max(1, m.dropQty || 1);
+    const ok = addMisc(p, m.id, q);
+    out.push({ misc: m, qty: q, kept: ok });
+  });
+}
+function dropBook(p, tiers, out) {
+  const list = GD.bikip.filter(b => tiers.includes(b.tier));
+  if (!list.length) return;
+  const b = pick(list);
+  out.push({ book: b, kept: addBook(p, b.id) });
 }
 
-export function bossRewards(p, map) {
-  const lv = map.max;
-  const ms = monsterStats(lv);
-  const exp = ms.exp * 25, gold = ms.gold * 20;
-  p.gold += gold;
-  const levels = gainExp(p, exp);
-  const n = 2 + (Math.random() < 0.4 ? 1 : 0);
-  const items = [];
+export function bossRewards(p, kind, b) {
+  const lv = b.lv, mb = monsterBase(lv);
+  const res = { exp: 0, gold: 0, levels: [], items: [], misc: [], books: [], gold_items: [], unlocked: null };
+  const mulE = kind === "gold" ? 60 : 25, mulG = kind === "gold" ? 50 : 20;
+  res.exp = mb.exp * mulE; res.gold = mb.gold * mulG;
+  p.gold += res.gold;
+  res.levels = gainExp(p, res.exp);
+  const source = kind === "gold" ? "gold" : "boss";
+  const n = (b.drops || 2) + (Math.random() * 100 < (b.dropExtra || 0) ? 1 : 0);
   for (let i = 0; i < n; i++) {
-    const it = genItem(lv, rollRarity(DROP_WEIGHTS_BOSS));
+    const it = genItem(lv, source); if (!it) continue;
     const r = addItem(p, it);
-    items.push({ it, kept: r.kept, gold: r.gold });
+    res.items.push({ it, kept: r.kept, gold: r.gold });
   }
-  return { exp, gold, levels, items };
+  if (kind === "map") {
+    if (Math.random() * 100 < (b.bikipChance || 0)) dropBook(p, [b.bikipTier || "ha"], res.books);
+    if (!p.beaten[b.id]) {
+      p.beaten[b.id] = true;
+      const map = getMap(b.map), next = X.maps.find(m => m.order === map.order + 1);
+      if (next && p.mapUnlocked < next.order) { p.mapUnlocked = next.order; res.unlocked = next; }
+    }
+  } else {
+    p.beaten[b.id] = (p.beaten[b.id] || 0) + 1;
+    const tiers = { ha: ["ha"], trung: ["ha", "trung"], thuong: ["ha", "trung", "cao"] }[b.bikipMax || "ha"] || ["ha"];
+    if (Math.random() * 100 < (b.bikipChance || 0)) dropBook(p, tiers, res.books);
+    if (Math.random() * 100 < (b.goldItemChance ?? 10)) {
+      const list = (GD.goldItems || []).filter(g => (g.dropTiers || []).includes(b.tier));
+      if (list.length) {
+        const it = makeGoldItem(pick(list));
+        const full = p.bag.length >= (S.invSize || 40);
+        if (!full) p.bag.push(it); else p.gold += sellPrice(it);
+        res.gold_items.push({ it, kept: !full });
+      }
+    }
+  }
+  dropMisc(p, source, res.misc);
+  return res;
+}
+
+// ================= ĐIỂM SO SÁNH ĐỒ =================
+const W = { atk: 3, hp: 0.5, def: 2, mp: 0.3, crit: 8, critdmg: 2, aspd: 6, mspd: 3, atkPct: 12, hpPct: 6, defPct: 6, mpPct: 2 };
+export function itemScore(it) {
+  if (!it) return 0;
+  const s = itemStats(it); let v = 0;
+  for (const k in s) v += (W[k] ?? 4) * s[k];
+  return v + (it.gold ? 5000 : 0);
 }
