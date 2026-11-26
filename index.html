@@ -5,12 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Võ Lâm Yêu Nước</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 <div id="demo-banner" class="hidden">Chế độ thử: dữ liệu lưu trên trình duyệt này. Điền cấu hình Firebase vào js/config.js để chơi thật.</div>
 
-<section id="scr-loading" class="screen center"><div class="logo">Võ Lâm Yêu Nước</div><div class="muted">Đang tải...</div></section>
+<section id="scr-loading" class="screen center"><div class="logo">Võ Lâm Yêu Nước</div><div class="muted" id="load-msg">Đang tải dữ liệu...</div></section>
 
 <section id="scr-login" class="screen center hidden">
   <form id="login-form" class="box form">
@@ -24,13 +24,16 @@
 </section>
 
 <section id="scr-create" class="screen center hidden">
-  <form id="create-form" class="box form wide-box">
+  <form id="create-form" class="box form create-box">
     <div class="logo">Tạo nhân vật</div>
+    <div class="bad" id="create-old"></div>
     <label>Tên nhân vật<input id="c-name" maxlength="16" required></label>
     <div class="lbl-t">Giới tính</div>
     <div class="cards" id="c-gender"></div>
     <div class="lbl-t">Môn phái</div>
     <div class="cards five" id="c-sect"></div>
+    <div class="lbl-t">Hai đường của phái — cầm vũ khí nào thì hình nhân vật đổi theo</div>
+    <div class="cards" id="c-paths"></div>
     <div class="bad" id="create-err"></div>
     <button class="btn" type="submit">Nhập giang hồ</button>
   </form>
@@ -48,6 +51,8 @@
       <button data-tab="idle">Treo máy</button>
       <button data-tab="bag" id="tab-btn-bag">Túi đồ</button>
       <button data-tab="skill" id="tab-btn-skill">Kỹ năng</button>
+      <button data-tab="shop">Cửa hàng</button>
+      <button data-tab="book" id="tab-btn-book">Bí kíp</button>
       <button data-tab="admin" id="tab-btn-admin" class="hidden">Admin</button>
       <button id="btn-pass">Đổi mật khẩu</button>
       <button id="btn-logout">Đăng xuất</button>
@@ -63,18 +68,26 @@
     <div class="panel" id="idle-right"></div>
   </div>
 
-  <div id="tab-bag" class="tab cols hidden">
+  <div id="tab-bag" class="tab cols2 hidden">
     <div class="panel" id="bag-left"></div>
-    <div class="panel col-mid">
-      <div class="sk-head"><span class="panel-t">Túi đồ</span>
-        <span><label class="chk"><input type="checkbox" id="bag-auto"> Tự bán đồ Thường</label>
-        <button class="btn ghost small-btn" id="bag-sellall">Bán hết đồ Thường</button></span></div>
-      <div class="bag-grid" id="bag-grid"></div>
+    <div class="bag-right">
+      <div class="panel">
+        <div class="sk-head"><span class="panel-t" id="bag-e-title">Ngăn trang bị</span>
+          <span><label class="chk"><input type="checkbox" id="bag-auto"> Tự bán đồ Thường</label>
+          <button class="btn ghost small-btn" id="bag-sellall">Bán hết đồ Thường</button></span></div>
+        <div class="bag-grid" id="bag-grid"></div>
+      </div>
+      <div class="panel">
+        <div class="sk-head"><span class="panel-t" id="bag-m-title">Ngăn vật phẩm</span><span class="muted small">Không bán được (trừ bí kíp phái khác) · xếp chồng</span></div>
+        <div class="bag-grid" id="misc-grid"></div>
+      </div>
+      <div class="panel" id="bag-detail"></div>
     </div>
-    <div class="panel" id="bag-detail"></div>
   </div>
 
   <div id="tab-skill" class="tab hidden"></div>
+  <div id="tab-shop" class="tab hidden"></div>
+  <div id="tab-book" class="tab hidden"></div>
   <div id="tab-admin" class="tab hidden"></div>
 </section>
 
@@ -83,6 +96,6 @@
 <div id="modal" class="modal hidden"><div class="modal-box" id="modal-box"></div></div>
 <div id="toast"></div>
 
-<script type="module" src="main.js"></script>
+<script type="module" src="js/main.js"></script>
 </body>
 </html>
