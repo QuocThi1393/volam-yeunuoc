@@ -24,15 +24,17 @@ export function newPlayer(name, gender, sect) {
     equip: Object.fromEntries(X.slotOrder.map(s => [s, null])),
     bag: [], misc: {}, books: {},
     hot: {}, mapId: X.maps[0].id, mapUnlocked: 1, beaten: {},
-    autoSellCommon: false, createdAt: Date.now(), lastSeen: Date.now()
+    autoSellCommon: false, createdAt: Date.now(), lastSeen: Date.now(),
+    ctrl: "A", gfx: "cao", showFps: false
   };
-  // skill chính đường 1 học sẵn cấp 1
-  const lmb = (X.skillOf[sect] && X.skillOf[sect][1] || {}).lmb;
-  if (lmb) p.skills[lmb.id] = 1;
-  // vũ khí khởi đầu của đường 1, cấp thấp nhất
-  const wt = sectPathWeapon(sect, 1);
-  const tpl = GD.items.filter(t => t.slot === "weapon" && t.weaponType === wt).sort((a, b) => a.lvFrom - b.lvFrom)[0];
-  if (tpl) p.equip.weapon = makeItem(tpl, 0, tpl.lvFrom);
+  // chưa học chiêu nào: 2 điểm skill (= cấp + 1) để tự chọn đường
+  p.skillPoints = 2;
+  // 2 vũ khí khởi đầu của 2 đường nằm sẵn trong túi
+  [1, 2].forEach(path => {
+    const wt = sectPathWeapon(sect, path);
+    const tpl = GD.items.filter(t => t.slot === "weapon" && t.weaponType === wt).sort((a, b) => a.lvFrom - b.lvFrom)[0];
+    if (tpl && !p.bag.some(it => it.wt === wt)) p.bag.push(makeItem(tpl, 0, tpl.lvFrom));
+  });
   // quà khởi đầu: vài bình thuốc
   const hp = miscByKind("hp")[0], mp = miscByKind("mp")[0], cure = miscByKind("cure")[0];
   if (hp) p.misc[hp.id] = 10;
@@ -63,8 +65,17 @@ export function normalizePlayer(p) {
   if (!X.map[p.mapId]) p.mapId = X.maps[0].id;
   p.mapUnlocked = Math.max(1, p.mapUnlocked || 1);
   p.gemsSpent ||= 0;
+  p.ctrl = p.ctrl === "B" ? "B" : "A";
+  p.gfx = p.gfx === "thap" ? "thap" : "cao";
+  p.showFps = !!p.showFps;
   defaultHotkeys(p);
   return p;
+}
+
+// Đã học chiêu chính (chuột trái) của đường nào chưa
+export function hasMainSkill(p) {
+  const o = X.skillOf[p.sect] || {};
+  return [1, 2].some(path => o[path] && o[path].lmb && p.skills[o[path].lmb.id]);
 }
 
 export function expToNext(lv) { return Math.floor((S.expBase || 100) * Math.pow(lv, S.expPow || 2.2)); }
@@ -151,7 +162,14 @@ export function genItem(lv, source) {
     tpls = Object.values(best);
   }
   if (!tpls.length) return null;
-  return makeItem(pick(tpls), rollRarity(source), lv);
+  // chọn ô trước (các ô chia đều), rồi chọn loại vũ khí (chia đều), rồi mới chọn món
+  const slot = pick([...new Set(tpls.map(t => t.slot))]);
+  let cands = tpls.filter(t => t.slot === slot);
+  if (slot === "weapon") {
+    const wt = pick([...new Set(cands.map(t => t.weaponType || ""))]);
+    cands = cands.filter(t => (t.weaponType || "") === wt);
+  }
+  return makeItem(pick(cands), rollRarity(source), lv);
 }
 
 export function sellPrice(it) {
@@ -162,7 +180,7 @@ export function sellPrice(it) {
 export function canEquipLevel(p, it) { return it.lv <= p.level + (S.maxOverLevel ?? 5); }
 
 export function addItem(p, it, logs) {
-  const full = p.bag.length >= (S.invSize || 40);
+  const full = p.bag.length >= (S.invSize || 50);
   if ((p.autoSellCommon && it.r === 0 && !it.gold) || full) {
     const g = sellPrice(it); p.gold += g;
     return { kept: false, gold: g };
@@ -173,20 +191,32 @@ export function addItem(p, it, logs) {
 
 export function sellItem(p, id) {
   const i = p.bag.findIndex(x => x.id === id);
-  if (i < 0) return 0;
+  if (i < 0 || p.bag[i].lock) return 0;
   const g = sellPrice(p.bag[i]);
   p.bag.splice(i, 1); p.gold += g;
   return g;
 }
 
-export function sellAllCommon(p) {
-  let g = 0, n = 0;
-  p.bag = p.bag.filter(it => {
-    if (it.r === 0 && !it.gold) { g += sellPrice(it); n++; return false; }
-    return true;
-  });
-  p.gold += g;
-  return { n, g };
+// Bán nhanh theo độ hiếm: bỏ qua đồ khóa và đồ Hoàng Kim
+const quickSellable = (it, r) => it.r === r && !it.gold && !it.lock;
+export function previewSellRarity(p, r) {
+  const list = p.bag.filter(it => quickSellable(it, r));
+  return { n: list.length, g: list.reduce((a, it) => a + sellPrice(it), 0) };
+}
+export function sellAllRarity(p, r) {
+  const res = previewSellRarity(p, r);
+  p.bag = p.bag.filter(it => !quickSellable(it, r));
+  p.gold += res.g;
+  return res;
+}
+export function sellAllCommon(p) { return sellAllRarity(p, 0); }
+
+export function toggleLock(p, id) {
+  const it = p.bag.find(x => x.id === id) || X.slotOrder.map(s => p.equip[s]).find(x => x && x.id === id);
+  if (!it) return false;
+  it.lock = !it.lock;
+  if (!it.lock) delete it.lock;
+  return !!it.lock;
 }
 
 export function equipItem(p, id) {
@@ -204,7 +234,7 @@ export function equipItem(p, id) {
 export function unequip(p, slot) {
   const it = p.equip[slot];
   if (!it) return "";
-  if (p.bag.length >= (S.invSize || 40)) return "Túi trang bị đã đầy.";
+  if (p.bag.length >= (S.invSize || 50)) return "Túi trang bị đã đầy.";
   p.equip[slot] = null; p.bag.push(it);
   return "";
 }
@@ -309,6 +339,7 @@ export function skillCalc(p, id, st, bonus) {
   const bst = { dmg: 0, aspd: 0, cd: 0, size: 0, dur: 0, count: 0, mp: 0, effectChance: 0, crit: 0, critdmg: 0 };
   GD.skills.forEach(ps => {
     if (ps.sect !== sk.sect || ps.target !== id || (ps.slot !== "p1" && ps.slot !== "p2")) return;
+    if (ps.mech === "aura_while") return;   // tăng cường có điều kiện: trận đánh tự cộng
     const pl = skillLevel(p, ps.id, bonus);
     if (pl) (ps.boosts || []).forEach(b => bst[b.attr] = (bst[b.attr] || 0) + b.per * pl);
   });
@@ -525,8 +556,9 @@ export function idleRound(p, state, now) {
 }
 
 // Treo máy khi vắng mặt: ước tính theo tốc độ hạ quái trung bình
-export function offlineGains(p, seconds) {
-  seconds = Math.min(seconds, (S.offlineHours ?? 8) * 3600);
+// noCap = true: đang mở web (tab bị trình duyệt cho chạy chậm), không giới hạn giờ
+export function offlineGains(p, seconds, noCap = false) {
+  if (!noCap) seconds = Math.min(seconds, (S.offlineHours ?? 24) * 3600);
   const map = getMap(p.mapId), st = calcStats(p), sc = idleAttack(p, st);
   const lv = clamp(p.level, map.lvFrom, map.lvTo), b = monsterBase(lv), pen = levelPenalty(p.level, lv);
   const per = rawSkillDamage(st, sc, map.element, false) * mitigate(b.def, p.level) * st.idleHit
@@ -544,7 +576,7 @@ export function offlineGains(p, seconds) {
   const drops = Math.min(300, Math.round(kills * (S.mobDropChance ?? 12) / 100));
   for (let i = 0; i < drops; i++) {
     const it = genItem(lv, "mob"); if (!it) continue;
-    const keep = it.r >= 1 && p.bag.length < (S.invSize || 40);
+    const keep = it.r >= 1 && p.bag.length < (S.invSize || 50);
     if (keep) { p.bag.push(it); res.kept.push(it); }
     else { const g = sellPrice(it); p.gold += g; res.sold++; res.soldGold += g; }
   }
@@ -606,7 +638,7 @@ export function bossRewards(p, kind, b) {
       const list = (GD.goldItems || []).filter(g => (g.dropTiers || []).includes(b.tier));
       if (list.length) {
         const it = makeGoldItem(pick(list));
-        const full = p.bag.length >= (S.invSize || 40);
+        const full = p.bag.length >= (S.invSize || 50);
         if (!full) p.bag.push(it); else p.gold += sellPrice(it);
         res.gold_items.push({ it, kept: !full });
       }
@@ -614,6 +646,61 @@ export function bossRewards(p, kind, b) {
   }
   dropMisc(p, source, res.misc);
   return res;
+}
+
+// Boss mạnh thêm theo số người (cộng dồn): mỗi người thêm +25% máu, +10% sát thương
+export function partyMul(n) {
+  const k = Math.max(0, (n || 1) - 1);
+  return { hp: 1 + k * (S.partyHpPer ?? 25) / 100, dmg: 1 + k * (S.partyDmgPer ?? 10) / 100 };
+}
+
+// ================= CHỢ =================
+export const MARKET_MAX = 10;
+// Lấy món ra khỏi túi để rao bán. kind: "item" | "misc" | "book"
+export function takeForMarket(p, kind, id, qty, price) {
+  price = Math.round(Number(price));
+  if (!(price >= 1)) return { err: "Nhập giá bán (vàng) lớn hơn 0." };
+  if (kind === "item") {
+    const i = p.bag.findIndex(x => x.id === id);
+    if (i < 0) return { err: "Không tìm thấy món đồ trong túi." };
+    if (p.bag[i].lock) return { err: "Món này đang khóa. Mở khóa rồi mới rao bán được." };
+    const it = p.bag.splice(i, 1)[0];
+    return { listing: { kind, item: it, qty: 1, price, name: it.name } };
+  }
+  qty = Math.max(1, Math.round(Number(qty) || 1));
+  if (kind === "misc") {
+    const m = X.misc[id];
+    if (!m || (p.misc[id] || 0) < qty) return { err: "Không đủ số lượng." };
+    if (m.quest) return { err: "Vật phẩm nhiệm vụ không rao bán được." };
+    useMisc(p, id, qty);
+    return { listing: { kind, ref: id, qty, price, name: m.name } };
+  }
+  if (kind === "book") {
+    const b = X.bikip[id];
+    if (!b || (p.books[id] || 0) < qty) return { err: "Không đủ số lượng." };
+    p.books[id] -= qty; if (p.books[id] <= 0) delete p.books[id];
+    return { listing: { kind, ref: id, qty, price, name: b.name } };
+  }
+  return { err: "Loại hàng không hợp lệ." };
+}
+// Túi còn chỗ nhận món này không (mua hoặc rút về)
+export function marketSpaceFor(p, L) {
+  if (L.kind === "item") return p.bag.length < (S.invSize || 50) ? "" : "Túi trang bị đã đầy.";
+  if (L.kind === "misc") return miscSpaceFor(p, L.ref, L.qty) ? "" : "Túi vật phẩm đã đầy.";
+  if (L.kind === "book") return (p.books[L.ref] || miscSlotsUsed(p) + 1 <= (S.invMiscSize || 30)) ? "" : "Túi vật phẩm đã đầy.";
+  return "Món không hợp lệ.";
+}
+export function giveFromMarket(p, L) {
+  if (L.kind === "item") { const it = { ...L.item }; delete it.lock; p.bag.push(it); return; }
+  if (L.kind === "misc") { p.misc[L.ref] = (p.misc[L.ref] || 0) + L.qty; return; }
+  if (L.kind === "book") p.books[L.ref] = (p.books[L.ref] || 0) + L.qty;
+}
+export function marketValid(L) {
+  if (!L || !(L.price >= 1)) return false;
+  if (L.kind === "item") return !!(L.item && (L.item.gold ? X.goldItem[L.item.gold] : X.item[L.item.tpl]));
+  if (L.kind === "misc") return !!X.misc[L.ref];
+  if (L.kind === "book") return !!X.bikip[L.ref];
+  return false;
 }
 
 // ================= ĐIỂM SO SÁNH ĐỒ =================

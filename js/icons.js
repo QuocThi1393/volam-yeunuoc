@@ -25,12 +25,21 @@ const SHAPES = {
 };
 
 // Ô hình vuông có viền màu; src = hình trong data (nếu có)
-export function iconBox(src, shape, color, size = 40, extra = "") {
+export function iconBox(src, shape, color, size = 40, extra = "", cls = "") {
   const inner = src
     ? `<img src="${src}" alt="" draggable="false">`
     : `<svg viewBox="0 0 40 40" aria-hidden="true">${(SHAPES[shape] || SHAPES.misc)(color)}</svg>`;
-  return `<span class="ico" style="width:${size}px;height:${size}px;border-color:${color}">${inner}${extra}</span>`;
+  return `<span class="ico ${cls}" style="width:${size}px;height:${size}px;border-color:${color}">${inner}${extra}</span>`;
 }
+
+// Lớp viền theo độ hiếm: xanh sáng hơn, tím đậm hơn, Hoàng Kim có vệt sáng xoay
+export function rarityClass(r, goldIdx) {
+  if (r === goldIdx) return "rargold";
+  return r === 1 ? "rar1" : r === 2 ? "rar2" : "";
+}
+
+// Ổ khóa nhỏ trên ô đồ đã khóa
+export const LOCK_SVG = `<i class="lk" title="Đã khóa"><svg viewBox="0 0 12 12" aria-hidden="true"><rect x="2" y="5.2" width="8" height="6" rx="1.2" fill="#ffd23f"/><path d="M3.8 5.2V3.8a2.2 2.2 0 0 1 4.4 0v1.4" fill="none" stroke="#ffd23f" stroke-width="1.4"/></svg></i>`;
 
 export function rarityColor(r) { return rarityOf(r).color || "#c8c8c8"; }
 

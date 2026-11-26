@@ -19,8 +19,36 @@ export async function loadGameData(url = "gamedata.json") {
   const d = await res.json();
   if (!d.meta || d.meta.app !== "vlyn" || d.meta.kind !== "gamedata") throw new Error("gamedata.json không đúng định dạng.");
   GD = d; S = d.settings || {};
+  toBlobUrls(GD);
   build();
   return GD;
+}
+
+// Đổi hình nhúng (data:...) thành link blob tải 1 lần: vẽ lại túi đồ, bảng skill nhẹ hơn nhiều
+function toBlobUrls(root) {
+  if (typeof window === "undefined" || !window.URL || !URL.createObjectURL) return;
+  const cache = new Map();
+  const isData = v => typeof v === "string" && v.startsWith("data:image/") && v.includes(";base64,");
+  const conv = v => {
+    if (cache.has(v)) return cache.get(v);
+    let url = v;
+    try {
+      const i = v.indexOf(","), mime = v.slice(5, v.indexOf(";")), bin = atob(v.slice(i + 1));
+      const u8 = new Uint8Array(bin.length);
+      for (let k = 0; k < bin.length; k++) u8[k] = bin.charCodeAt(k);
+      url = URL.createObjectURL(new Blob([u8], { type: mime }));
+    } catch (e) { url = v; }
+    cache.set(v, url);
+    return url;
+  };
+  const walk = o => {
+    for (const k in o) {
+      const v = o[k];
+      if (isData(v)) o[k] = conv(v);
+      else if (v && typeof v === "object") walk(v);
+    }
+  };
+  walk(root);
 }
 
 function build() {

@@ -93,3 +93,79 @@ export async function listPlayers() {
   const snap = await fb.fsM.getDocs(fb.fsM.collection(fb.db, "players"));
   return snap.docs.map(d => ({ uid: d.id, ...d.data() }));
 }
+
+// ===== CHỢ: rao bán giữa người chơi =====
+// Chế độ thử: dùng chung localStorage nên chỉ thấy giữa các tài khoản trên cùng trình duyệt.
+// Firebase: collection "market" (hàng đang rao) và "payouts/{uid}/list" (vàng chờ người bán nhận).
+const MK = "vlyn_market";
+const demoMarket = () => { try { return JSON.parse(localStorage.getItem(MK) || "[]"); } catch (e) { return []; } };
+const demoSaveMarket = arr => localStorage.setItem(MK, JSON.stringify(arr));
+const mkId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+
+export async function listMarket() {
+  if (DEMO) return demoMarket();
+  const snap = await fb.fsM.getDocs(fb.fsM.collection(fb.db, "market"));
+  return snap.docs.map(d => ({ ...d.data(), id: d.id }));
+}
+
+// L = { kind, item | ref, qty, price, name } ; trả về listing đã lưu
+export async function addListing(user, sellerName, L) {
+  const data = JSON.parse(JSON.stringify({ ...L, uid: user.uid, seller: sellerName, createdAt: Date.now() }));
+  if (DEMO) {
+    const arr = demoMarket(); const row = { ...data, id: mkId() };
+    arr.push(row); demoSaveMarket(arr); return row;
+  }
+  const ref = await fb.fsM.addDoc(fb.fsM.collection(fb.db, "market"), data);
+  return { ...data, id: ref.id };
+}
+
+// Người bán rút hàng về: trả về listing (hoặc null nếu đã có người mua)
+export async function withdrawListing(user, id) {
+  if (DEMO) {
+    const arr = demoMarket(), i = arr.findIndex(x => x.id === id && x.uid === user.uid);
+    if (i < 0) return null;
+    const row = arr.splice(i, 1)[0]; demoSaveMarket(arr); return row;
+  }
+  const { fsM, db } = fb, ref = fsM.doc(db, "market", id);
+  return fsM.runTransaction(db, async tx => {
+    const s = await tx.get(ref);
+    if (!s.exists() || s.data().uid !== user.uid) return null;
+    tx.delete(ref);
+    return { ...s.data(), id };
+  });
+}
+
+// Người mua mua hàng: xóa hàng, ghi vàng chờ cho người bán. Trả về listing (null nếu đã bán)
+export async function buyListing(user, buyerName, id) {
+  if (DEMO) {
+    const arr = demoMarket(), i = arr.findIndex(x => x.id === id);
+    if (i < 0) return null;
+    const row = arr.splice(i, 1)[0]; demoSaveMarket(arr);
+    const key = "vlyn_payout_" + row.uid, list = JSON.parse(localStorage.getItem(key) || "[]");
+    list.push({ gold: row.price, name: row.name, qty: row.qty, buyer: buyerName, at: Date.now() });
+    localStorage.setItem(key, JSON.stringify(list));
+    return row;
+  }
+  const { fsM, db } = fb, ref = fsM.doc(db, "market", id);
+  return fsM.runTransaction(db, async tx => {
+    const s = await tx.get(ref);
+    if (!s.exists()) return null;
+    const row = { ...s.data(), id };
+    tx.delete(ref);
+    tx.set(fsM.doc(fsM.collection(db, "payouts", row.uid, "list")),
+      { gold: row.price, name: row.name, qty: row.qty || 1, buyer: buyerName, at: Date.now() });
+    return row;
+  });
+}
+
+// Người bán nhận vàng từ hàng đã bán (kể cả lúc offline). Trả về danh sách đã nhận
+export async function claimPayouts(user) {
+  if (DEMO) {
+    const key = "vlyn_payout_" + user.uid, list = JSON.parse(localStorage.getItem(key) || "[]");
+    localStorage.removeItem(key); return list;
+  }
+  const { fsM, db } = fb, col = fsM.collection(db, "payouts", user.uid, "list");
+  const snap = await fsM.getDocs(col), out = [];
+  for (const d of snap.docs) { out.push(d.data()); await fsM.deleteDoc(d.ref); }
+  return out;
+}
