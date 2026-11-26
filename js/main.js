@@ -129,6 +129,7 @@ $("login-form").addEventListener("submit", async e => {
 // ---------- Tạo nhân vật ----------
 let cGender = "nam", cSect = null;
 function showCreate(old) {
+  $("create-user").textContent = user ? user.username : "";
   show("scr-create");
   cSect = cSect || (GD.sects.find(s => s.enabled) || GD.sects[0]).id;
   $("create-old").textContent = old ? `Bản 2.0 đổi toàn bộ dữ liệu, nhân vật bản cũ (${old.name || ""} Lv${old.level || 1}) không dùng tiếp được. Tạo nhân vật mới để chơi.` : "";
@@ -203,6 +204,7 @@ function setTab(t) {
 }
 document.querySelectorAll(".tabs button[data-tab]").forEach(b => b.onclick = () => setTab(b.dataset.tab));
 $("btn-logout").onclick = async () => { await saveNow(); store.logout(); };
+$("create-logout").onclick = () => store.logout();        // màn tạo nhân vật: đổi tài khoản khi chưa tạo nhân vật
 $("btn-pass").onclick = () => passwordModal();
 
 function renderAll() {

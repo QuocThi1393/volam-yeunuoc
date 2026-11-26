@@ -30,6 +30,7 @@ export async function init(onUser) {
 const ERR = {
   "auth/invalid-credential": "Sai tên đăng nhập hoặc mật khẩu.",
   "auth/wrong-password": "Sai mật khẩu.",
+  "auth/missing-password": "Chưa nhập mật khẩu. Nếu Chrome tự điền sẵn, hãy xóa ô mật khẩu rồi gõ lại.",
   "auth/user-not-found": "Tài khoản không tồn tại.",
   "auth/invalid-email": "Tên đăng nhập không hợp lệ.",
   "auth/too-many-requests": "Thử sai quá nhiều lần, đợi một lát rồi thử lại.",
