@@ -230,3 +230,24 @@ input:focus { outline: none; border-color: #f2c230; }
 .sc-kind { font-size: 11px; color: #ffe08a; align-self: stretch; text-align: left; margin-bottom: 2px; }
 .bk-cols { max-width: 1100px; margin-left: auto; margin-right: auto; }
 .shop-grid { grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); }
+
+/* ===== bản 2.2: tab con, tầng skill, tổ đội ===== */
+.subtabs { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 4px; border-bottom: 1px solid #2e3140; margin-bottom: 10px; }
+.subtabs > button { background: #1f2128; color: #999; border: 0; border-bottom: 2px solid transparent; border-radius: 8px 8px 0 0; padding: 7px 14px; font-size: 13px; }
+.subtabs > button:hover { color: #ddd; }
+.subtabs > button.on { background: #2e3140; color: #fff; border-bottom-color: #f2c230; }
+.subtabs .st-fill { flex: 1; }
+.subtabs > span:not(.st-fill) { padding-bottom: 6px; }
+.sk-lv { width: 104px; }
+.sk-lv.tier { color: #ffd23f; }
+.pips { display: flex; gap: 3px; justify-content: flex-end; margin-top: 3px; }
+.pips i { width: 14px; height: 6px; border-radius: 3px; background: #3a3d48; }
+.pips i.on { background: #ffd23f; }
+.pt-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: 12px; max-width: 1100px; margin: 0 auto; }
+.pt-row { display: flex; align-items: center; gap: 10px; background: #1c1e26; border: 1px solid #2e3140; border-radius: 8px; padding: 7px 10px; margin-bottom: 6px; }
+.pt-row .dot { width: 8px; height: 8px; border-radius: 50%; background: #6fd06f; flex: none; }
+.pt-row .dot.boss { background: #ffd23f; } .pt-row .dot.room { background: #00aaff; }
+.pt-row .grow { flex: 1; min-width: 0; }
+.pt-row.me { border-color: #4a4f66; }
+.pt-note { font-size: 11px; color: #6a6d76; margin-top: 10px; }
+@media (max-width: 900px) { .pt-cols { grid-template-columns: minmax(0, 1fr); } }
