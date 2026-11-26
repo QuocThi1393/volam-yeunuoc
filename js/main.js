@@ -1,5 +1,6 @@
-// ===== GIAO DIỆN CHÍNH — bản 2.1 =====
+// ===== GIAO DIỆN CHÍNH — bản 2.2 =====
 import * as store from "./store.js";
+import * as net from "./net.js";
 import {
   GD, S, X, loadGameData, elemBonus, elemColor, elemName, statName, statPct, rarityOf, miscByKind,
   sectPathWeapon, sectPathName, WEAPON_NAMES, SLOT_NAMES_KEYS, BIKIP_TIER_NAMES, GOLD_TIER_NAMES, BIKIP_SELL
@@ -17,6 +18,7 @@ let idle = { mon: null, hp: null, restUntil: 0 };
 let idleTimer = null, saveTimer = null, battle = null;
 let logs = [];
 let tab = "idle", sel = null;     // sel = {type:"item"|"eq"|"misc"|"book", id}
+let bagTab = "eq", skTab = null;  // tab con trong Túi đồ và Kỹ năng (Kỹ năng mở sẵn đường đang cầm vũ khí)
 
 // ---------- Tiện ích ----------
 function show(id) { document.querySelectorAll(".screen").forEach(s => s.classList.toggle("hidden", s.id !== id)); }
@@ -74,10 +76,10 @@ async function saveNow() {
   clearTimeout(saveTimer); saveTimer = null;
   P.lastSeen = Date.now();
   try { await store.savePlayer(user.uid, P); }
-  catch (e) { console.error(e); toast("Lưu thất bại: " + (e.code || e.message)); }
+  catch (e) { console.error(e); toast(e.backup ? "Lưu lên Firebase lỗi, đã lưu tạm trong máy. Lần sau lưu được sẽ tự đẩy lên." : "Lưu thất bại: " + (e.code || e.message)); }
 }
 function markDirty(delay = 5000) { if (!saveTimer) saveTimer = setTimeout(saveNow, delay); }
-setInterval(() => { if (P) saveNow(); }, 60000);
+setInterval(() => { if (P) saveNow(); }, 300000);      // tự lưu 5 phút 1 lần (thao tác quan trọng vẫn lưu ngay)
 document.addEventListener("visibilitychange", () => { if (document.hidden) saveNow(); });
 window.addEventListener("beforeunload", () => { saveNow(); });
 
@@ -130,7 +132,23 @@ function showCreate(old) {
   show("scr-create");
   cSect = cSect || (GD.sects.find(s => s.enabled) || GD.sects[0]).id;
   $("create-old").textContent = old ? `Bản 2.0 đổi toàn bộ dữ liệu, nhân vật bản cũ (${old.name || ""} Lv${old.level || 1}) không dùng tiếp được. Tạo nhân vật mới để chơi.` : "";
+  if (!old && !store.DEMO) migrateOffer();
   renderCreate();
+}
+// Lần đầu đăng nhập Firebase: chuyển nhân vật chơi ở chế độ thử (còn trên trình duyệt này) lên
+function migrateOffer() {
+  const list = store.demoPlayers().filter(d => d.version === L.SAVE_VERSION && d.name);
+  if (!list.length) return;
+  $("create-old").innerHTML = `<div class="small" style="color:#ddd">Trình duyệt này còn nhân vật chơi ở chế độ thử. Chuyển lên tài khoản này?</div>`
+    + list.map((d, i) => `<button type="button" class="btn ghost small-btn" data-mig="${i}" style="margin:6px 6px 0 0">${esc(d.name)} · Lv${d.level} ${esc((X.sect[d.sect] || {}).name || "")}</button>`).join("");
+  document.querySelectorAll("[data-mig]").forEach(b => b.onclick = async () => {
+    const d = { ...list[+b.dataset.mig] }, key = d.key; delete d.key;
+    P = L.normalizePlayer(d); P.username = user.username;
+    await saveNow();
+    localStorage.removeItem(key);          // xóa bản chơi thử để khỏi chuyển trùng sang tài khoản khác
+    startMain();
+    toast(`Đã chuyển ${P.name} lên tài khoản ${user.username}.`);
+  });
 }
 function renderCreate() {
   const s = X.sect[cSect];
@@ -174,6 +192,8 @@ function startMain() {
   $("tab-btn-admin").classList.toggle("hidden", !user.isAdmin);
   setTab(tab);
   startIdle();
+  net.setOnChange(() => { if (tab === "party" && !battle) renderParty(); });
+  net.start(user, { n: P.name, l: P.level, s: P.sect }).catch(e => console.error("net", e));
 }
 function setTab(t) {
   tab = t; sel = null;
@@ -192,6 +212,7 @@ function renderAll() {
   if (tab === "skill") renderSkills();
   if (tab === "shop") renderShop();
   if (tab === "market") renderMarket();
+  if (tab === "party") renderParty();
   if (tab === "admin") renderAdmin();
 }
 
@@ -207,6 +228,7 @@ function renderHeader() {
   $("tab-btn-bag").textContent = `Túi đồ (${P.bag.length}/${INV()})`;
   const readable = Object.keys(P.books).some(id => X.bikip[id] && X.bikip[id].sect === P.sect && (P.bikip[id] || 0) < (X.bikip[id].maxLv || 3));
   $("tab-btn-skill").innerHTML = "Kỹ năng" + (P.skillPoints > 0 ? ` <span class="badge">${P.skillPoints}</span>` : readable ? ` <span class="badge">!</span>` : "");
+  net.setMe({ l: P.level });
 }
 
 // ----- Bảng nhân vật (trang bị quanh hình) -----
@@ -393,7 +415,7 @@ function renderBag() {
       ${itemIcon(it, 48, true)}${better && !tooHigh ? `<span class="up">▲</span>` : ""}${tooHigh ? `<span class="lock">Lv${it.lv}</span>` : ""}</button>`);
   }
   $("bag-grid").innerHTML = cells.join("");
-  $("bag-e-title").textContent = `Ngăn trang bị ${P.bag.length}/${INV()}`;
+  $("bag-e-title").textContent = `Trang bị ${P.bag.length}/${INV()}`;
   // vật phẩm + bí kíp
   const mcells = [];
   (GD.misc || []).forEach(m => {
@@ -415,8 +437,13 @@ function renderBag() {
   const used = L.miscSlotsUsed(P), cap = S.invMiscSize || 30;
   for (let i = mcells.length; i < cap; i++) mcells.push(`<div class="cell">${emptyBox(48)}</div>`);
   $("misc-grid").innerHTML = mcells.join("");
-  $("bag-m-title").textContent = `Ngăn vật phẩm ${used}/${cap}`;
+  $("bag-m-title").textContent = `Vật phẩm ${used}/${cap}`;
   $("bag-auto").checked = !!P.autoSellCommon;
+  // tab Trang bị | Vật phẩm
+  const eqTab = bagTab === "eq";
+  $("bag-e-title").classList.toggle("on", eqTab); $("bag-m-title").classList.toggle("on", !eqTab);
+  $("bag-grid").classList.toggle("hidden", !eqTab); $("bag-eq-tools").classList.toggle("hidden", !eqTab);
+  $("misc-grid").classList.toggle("hidden", eqTab); $("bag-misc-tools").classList.toggle("hidden", eqTab);
   document.querySelectorAll("[data-item]").forEach(b => b.onclick = () => { sel = { type: "item", id: b.dataset.item }; renderBag(); });
   document.querySelectorAll("[data-misc]").forEach(b => b.onclick = () => { sel = { type: "misc", id: b.dataset.misc }; renderBag(); });
   document.querySelectorAll("[data-book]").forEach(b => b.onclick = () => { sel = { type: "book", id: b.dataset.book }; renderBag(); });
@@ -524,6 +551,12 @@ function bindLock(it) {
   $("d-lock").onclick = () => { const on = L.toggleLock(P, it.id); toast(on ? `Đã khóa ${it.name}: không bán được, bán nhanh sẽ bỏ qua.` : `Đã mở khóa ${it.name}.`); markDirty(); renderBag(); };
 }
 $("bag-auto").onchange = e => { P.autoSellCommon = e.target.checked; markDirty(); };
+document.querySelectorAll("[data-bt]").forEach(b => b.onclick = () => {
+  if (bagTab === b.dataset.bt) return;
+  bagTab = b.dataset.bt;
+  if (sel && sel.type !== "eq") sel = null;
+  renderBag();
+});
 
 // ----- Kỹ năng -----
 function skillNumbers(sc) {
@@ -543,41 +576,54 @@ function skillNumbers(sc) {
   sc.stats.forEach(x => out.push(`${statName(x.stat)} +${statVal(x.stat, x.v)}`));
   return out.join(" · ");
 }
+function skillTabName(path) {
+  const sc = X.sect[P.sect] || {};
+  return sc["tabName" + path] || `${sc.name || ""} ${WEAPON_NAMES[sectPathWeapon(P.sect, path)] || sectPathName(P.sect, path)}`;
+}
 function renderSkills() {
   const st = L.calcStats(P), bonus = L.skillBonusLevels(P), wt = L.equippedWeapon(P);
   const gem = miscByKind("skillup")[0], rs = miscByKind("reset")[0];
   const gems = L.countKind(P, "skillup"), resets = L.countKind(P, "reset");
+  const tiers = S.skillExtraTiers ?? 3;
+  if (!skTab) skTab = "p" + L.activePath(P);
   const col = path => {
     const set = (X.skillOf[P.sect] || {})[path] || {};
     const rows = ["lmb", "rmb", "p1", "p2", "q"].map(slot => {
       const s = set[slot]; if (!s) return "";
-      const base = P.skills[s.id] || 0, eff = L.skillLevel(P, s.id, bonus);
+      const base = P.skills[s.id] || 0, eff = L.skillLevel(P, s.id, bonus), max = L.skillMaxLv(s), baseMax = s.maxLv || 10;
       const sc = base ? L.skillCalc(P, s.id, st, bonus) : null;
-      const next = base < s.maxLv ? (() => { const tmp = { ...P, skills: { ...P.skills, [s.id]: base + 1 } }; return L.skillCalc(tmp, s.id, st, bonus); })() : null;
+      const next = base < max ? (() => { const tmp = { ...P, skills: { ...P.skills, [s.id]: base + 1 } }; return L.skillCalc(tmp, s.id, st, bonus); })() : null;
       const cost = L.upgradeCost(P, s.id);
-      const can = base < s.maxLv && P.skillPoints >= cost.points && gems >= cost.gems;
+      const can = base < max && P.skillPoints >= cost.points && gems >= cost.gems;
       const wtag = s.weapon ? `<span class="${s.weapon === wt ? "good" : "bad"}">cần ${WEAPON_NAMES[s.weapon]}</span>` : `<span class="muted">cầm gì cũng dùng được</span>`;
+      const tier = base - baseMax;
+      const pips = base >= baseMax && tiers > 0 ? `<div class="pips">${Array.from({ length: tiers }, (_, i) => `<i class="${i < tier ? "on" : ""}"></i>`).join("")}</div>` : "";
       return `<div class="sk-row">
         ${iconBox(s.img, "skill", base ? "#f2c230" : "#555", 40)}
         <div class="sk-main"><div class="sk-name">${esc(s.name)} <small class="muted">${SLOT_NAMES_KEYS[slot]}</small></div>
           <div class="small">${wtag}</div>
           <div class="sk-desc">${esc(s.desc || "")}</div>
           ${sc ? `<div class="sk-num">${esc(skillNumbers(sc))}</div>` : ""}
-          ${next ? `<div class="sk-next muted">Cấp ${base + 1}: ${esc(skillNumbers(next))}</div>` : ""}</div>
-        <div class="sk-lv">Cấp ${base}/${s.maxLv}${eff > base ? ` <span class="good">+${eff - base}</span>` : ""}</div>
-        <button class="mini plus" data-sk="${s.id}" ${can ? "" : "disabled"} title="${base >= s.maxLv ? "Tối đa" : `Tốn ${cost.points} điểm${cost.gems ? `, ${cost.gems} ${gem ? gem.name : "ngọc"}` : ""}`}">
-          +<small>${base >= s.maxLv ? "max" : `${cost.points}đ${cost.gems ? " · " + cost.gems + " ngọc" : ""}`}</small></button></div>`;
+          ${next ? `<div class="sk-next muted">${base >= baseMax ? `Tầng ${tier + 1}` : `Cấp ${base + 1}`}: ${esc(skillNumbers(next))}</div>` : ""}</div>
+        <div class="sk-lv ${tier > 0 ? "tier" : ""}">Cấp ${base}/${max}${eff > base ? ` <span class="good">+${eff - base}</span>` : ""}${tier > 0 ? `<div class="small">tầng ${tier}/${tiers}</div>` : ""}${pips}</div>
+        <button class="mini plus" data-sk="${s.id}" ${can ? "" : "disabled"} title="${base >= max ? "Tối đa" : `Tốn ${cost.points} điểm${cost.gems ? `, ${cost.gems} ${gem ? gem.name : "ngọc"}` : ""}`}">
+          +<small>${base >= max ? "max" : `${cost.points}đ${cost.gems ? " · " + cost.gems + " ngọc" : ""}`}</small></button></div>`;
     }).join("");
     const on = L.activePath(P) === path;
-    return `<div class="sk-col"><div class="sk-path ${on ? "on" : ""}">${esc(sectPathName(P.sect, path))} · ${WEAPON_NAMES[sectPathWeapon(P.sect, path)] || ""}${on ? " · đang dùng" : ""}</div>${rows}</div>`;
+    return `<div class="sk-path ${on ? "on" : ""}">${esc(sectPathName(P.sect, path))} · ${WEAPON_NAMES[sectPathWeapon(P.sect, path)] || ""}${on ? " · đang dùng" : " · cầm " + (WEAPON_NAMES[sectPathWeapon(P.sect, path)] || "") + " để dùng"}</div>${rows}`;
   };
+  const tabs = [["p1", skillTabName(1)], ["p2", skillTabName(2)], ["bk", "Bí kíp"], ["gh", "Bí kíp giang hồ"]];
+  const xp = S.skillExtraPoints ?? 2, xg = S.skillExtraGemMul ?? 2;
+  const help = `<p class="muted small">Mỗi cấp nhân vật được 1 điểm. Học skill tốn 1 điểm; nâng lên cấp n tốn thêm ${(S.skillGemMul ?? 1) === 1 ? "" : (S.skillGemMul + " × ")}(n − 1) ${esc(gem ? gem.name : "ngọc")}.
+    ${tiers ? `Sau cấp tối đa còn ${tiers} tầng: mỗi tầng tốn ${xp} điểm và gấp ${xg} lần ngọc.` : ""} Skill cần vũ khí khác vẫn nâng được, đổi vũ khí là dùng ngay. Thanh chiến đấu dùng skill của đường đang cầm vũ khí.</p>`;
+  const body = skTab === "p1" ? help + col(1) : skTab === "p2" ? help + col(2) : booksHtml(skTab);
   $("tab-skill").innerHTML = `<div class="panel wide">
-    <div class="sk-head"><span class="panel-t">Kỹ năng · ${esc(X.sect[P.sect].name)}</span>
+    <div class="subtabs">${tabs.map(([k, t]) => `<button data-skt="${k}" class="${skTab === k ? "on" : ""}">${esc(t)}</button>`).join("")}
+      <span class="st-fill"></span>
       <span class="pts">Điểm skill: <b>${P.skillPoints}</b> · ${esc(gem ? gem.name : "Ngọc")}: <b>${gems}</b>
       <button class="btn danger small-btn" id="sk-reset">Reset (${resets} ${esc(rs ? rs.name : "")})</button></span></div>
-    <p class="muted small">Mỗi cấp nhân vật được 1 điểm. Học skill tốn 1 điểm; nâng lên cấp n tốn thêm ${(S.skillGemMul ?? 1) === 1 ? "" : (S.skillGemMul + " × ")}(n − 1) ${esc(gem ? gem.name : "ngọc")}. Skill cần vũ khí khác vẫn nâng được, đổi vũ khí là dùng ngay. Thanh chiến đấu dùng skill của đường đang cầm vũ khí.</p>
-    <div class="sk-cols">${col(1)}${col(2)}</div></div>
-    ${booksHtml()}`;
+    ${body}</div>`;
+  document.querySelectorAll("[data-skt]").forEach(b => b.onclick = () => { skTab = b.dataset.skt; renderSkills(); });
   bindBooks();
   document.querySelectorAll("[data-sk]").forEach(b => b.onclick = () => {
     const e = L.upgradeSkill(P, b.dataset.sk);
@@ -619,8 +665,8 @@ function renderShop() {
   });
 }
 
-// ----- Bí kíp (nằm trong tab Kỹ năng) -----
-function booksHtml() {
+// ----- Bí kíp (tab Bí kíp và Bí kíp giang hồ trong Kỹ năng) -----
+function booksHtml(which) {
   const own = GD.bikip.filter(b => b.sect === P.sect).sort((a, b) => ["ha", "trung", "cao"].indexOf(a.tier) - ["ha", "trung", "cao"].indexOf(b.tier));
   const rows = own.map(b => {
     const lv = P.bikip[b.id] || 0, have = P.books[b.id] || 0, max = b.maxLv || 3;
@@ -631,11 +677,11 @@ function booksHtml() {
       <div class="sk-lv">Cấp ${lv}/${max}<br><small class="muted">có ${have} cuốn</small></div>
       <button class="btn small-btn" data-read="${b.id}" ${have && lv < max ? "" : "disabled"}>Đọc</button></div>`;
   }).join("");
-  return `<div class="bk-cols"><div class="panel"><div class="panel-t">Bí kíp môn phái · ${esc(X.sect[P.sect].name)}</div>
-    <p class="muted small">Bí kíp rơi từ boss (boss map dưới 1/260, boss Hoàng Kim ${GD.goldBosses[0] ? GD.goldBosses[0].bikipChance : 15}%). Đọc trùng để lên cấp, tối đa 3. Bí kíp phái khác bán lấy vàng hoặc rao ở Chợ. Tác dụng dùng chung cho cả 2 đường.</p>${rows}</div>
-    <div class="panel"><div class="panel-t">Bí kíp giang hồ</div>
+  if (which === "gh") return `<div class="panel-t">Bí kíp giang hồ</div>
     <p class="muted small">Bí kíp ngoài môn phái, ví dụ Đạn Chỉ Thần Công, Thiên Ngoại Phi Tiên: cầm đúng vũ khí là phái nào cũng luyện được.</p>
-    <div class="soon">Sắp có ở bản sau</div></div></div>`;
+    <div class="soon">Sắp có ở bản sau</div>`;
+  return `<div class="panel-t">Bí kíp môn phái · ${esc(X.sect[P.sect].name)}</div>
+    <p class="muted small">Bí kíp rơi từ boss (boss map dưới 1/260, boss Hoàng Kim ${GD.goldBosses[0] ? GD.goldBosses[0].bikipChance : 15}%). Đọc trùng để lên cấp, tối đa 3. Bí kíp phái khác bán lấy vàng hoặc rao ở Chợ. Tác dụng dùng chung cho cả 2 đường.</p>${rows}`;
 }
 function bindBooks() {
   document.querySelectorAll("[data-read]").forEach(b => b.onclick = () => {
@@ -652,7 +698,7 @@ async function renderAdmin() {
     const list = await store.listPlayers();
     list.sort((a, b) => (b.level || 0) - (a.level || 0));
     const rows = list.map(p => {
-      const online = Date.now() - (p.lastSeen || 0) < 90000;
+      const online = net.started() ? net.isOnline(p.uid) : Date.now() - (p.lastSeen || 0) < 360000;
       const seen = p.lastSeen ? new Date(p.lastSeen).toLocaleString("vi-VN") : "-";
       return `<tr><td>${esc(p.name)}</td><td>${esc(p.username || p.uid)}</td><td>${X.sect[p.sect] ? esc(X.sect[p.sect].name) : "-"}</td>
         <td>${X.gender[p.gender] ? esc(X.gender[p.gender].name) : "-"}</td><td>${p.level}</td><td>${fmt(p.gold || 0)}</td>
@@ -729,6 +775,7 @@ function bossIntro(kind, b) {
 function startBattle(kind, b) {
   stopIdle();
   show("scr-battle");
+  net.setMe({ st: "boss" });
   const map = kind === "map" ? L.getMap(b.map) : (X.map[b.unlock] || L.getMap(P.mapId));
   battle = new Battle($("cv"), P, { kind, boss: b, map, players: 1 }, (result, used) => {
     battle = null;
@@ -758,12 +805,79 @@ function startBattle(kind, b) {
         ${usedTxt ? `<div class="muted small">Đã dùng: ${esc(usedTxt)}</div>` : ""}
         <div class="m-act"><button class="btn" onclick="closeModal()">Về thành</button></div>`);
     } else toast("Đã bỏ chạy khỏi trận.");
+    net.setMe({ st: "idle" });
     saveNow();
     renderAll();
     startIdle();
   });
   battle.start();
 }
+
+// ----- Tổ đội: ai đang online, phòng thử nhiều người (bản 2.2) -----
+const ST_NAMES = { idle: "treo máy", room: "trong phòng", boss: "đánh boss" };
+function renderParty() {
+  const box = $("tab-party");
+  if (net.mode === "off") {
+    box._html = "";
+    box.innerHTML = `<div class="panel wide"><div class="panel-t">Tổ đội</div>
+      <p>Chưa bật phần chơi chung. Cần tạo <b>Realtime Database</b> trong Firebase rồi dán địa chỉ vào <code>databaseURL</code> trong file <code>js/config.js</code>.</p>
+      <p class="muted small">Xem mục "Bật chơi chung" trong HUONG_DAN.md. Treo máy, lưu nhân vật và Chợ vẫn chạy bình thường.</p></div>`;
+    return;
+  }
+  const on = net.onlineList().sort((a, b) => (b.uid === user.uid) - (a.uid === user.uid) || (b.l || 0) - (a.l || 0));
+  const rows = on.map(o => `<div class="pt-row ${o.uid === user.uid ? "me" : ""}"><span class="dot ${o.st === "boss" ? "boss" : o.st === "room" ? "room" : ""}"></span>
+    <span class="grow">${esc(o.n)} · Lv${o.l || 1} ${esc((X.sect[o.s] || {}).name || "")}${o.uid === user.uid ? ' <small class="muted">(bạn)</small>' : ""}</span>
+    <span class="muted small">${ST_NAMES[o.st] || "online"}</span></div>`).join("") || `<div class="muted">Đang kết nối...</div>`;
+  const rl = net.roomList();
+  const rooms = rl.map(r => `<div class="pt-row"><span class="grow"><b>${esc(r.n)}</b><br><span class="muted small">${r.count}/${net.ROOM_MAX} người · mộc nhân · ${esc(r.names.join(", "))}</span></span>
+    <button class="btn small-btn" data-room="${r.id}" data-rn="${esc(r.n)}" ${r.count >= net.ROOM_MAX ? "disabled" : ""}>${r.count >= net.ROOM_MAX ? "Đủ người" : "Vào"}</button></div>`).join("")
+    || `<div class="muted small" style="margin-bottom:8px">Chưa có phòng nào. Tạo phòng rồi rủ bạn vào.</div>`;
+  const html = `<div class="pt-cols">
+    <div class="panel"><div class="panel-t">Đang online · ${on.length}</div>${rows}</div>
+    <div class="panel"><div class="panel-t">Phòng thử</div>
+      <p class="muted small">Tối đa ${net.ROOM_MAX} người: thấy nhau đi lại, ra chiêu và cùng đánh 1 mộc nhân (máu chung). Chiêu của người khác chỉ để nhìn, không trúng mình. Esc → F để rời phòng.</p>
+      ${rooms}<button class="btn ghost" id="pt-new" ${battle ? "disabled" : ""}>+ Tạo phòng</button>
+      ${net.mode === "demo" ? `<p class="muted small" style="margin-top:10px">Chế độ thử: mở thêm tab khác trên máy này, đăng nhập tên khác để thử 2–5 người.</p>` : ""}
+      <div class="pt-note" id="pt-stat"></div></div></div>`;
+  const stat = `${net.stats.ping ? net.stats.ping + " ms · " : ""}đã nhận ~${(net.stats.bytes / 1048576).toFixed(2)} MB`;
+  if (box._html === html) { $("pt-stat").textContent = stat; return; }     // không đổi gì thì không vẽ lại (nút khỏi nhảy)
+  box.innerHTML = box._html = html;
+  $("pt-stat").textContent = stat;
+  document.querySelectorAll("[data-room]").forEach(b => b.onclick = () => enterRoom(b.dataset.room, b.dataset.rn));
+  $("pt-new").onclick = async () => {
+    try { const r = await net.createRoom(`Phòng của ${P.name}`); enterRoom(r.id, r.name); }
+    catch (e) { toast("Không tạo được phòng: " + (e.code || e.message)); }
+  };
+}
+let joining = false;
+async function enterRoom(id, name) {
+  if (battle || joining) return;
+  joining = true;
+  let room;
+  try { room = await net.joinRoom(id, name, { n: P.name, l: P.level, s: P.sect, g: P.gender, w: L.equippedWeapon(P) || "" }); }
+  catch (e) { joining = false; return toast(e.message || "Không vào được phòng."); }
+  joining = false;
+  stopIdle();
+  show("scr-battle");
+  const dummy = { name: "Mộc nhân", lv: P.level, element: "", hp: S.roomDummyHp || 2000000, atk: 0, def: 0, patterns: ["ring"], img: "" };
+  battle = new Battle($("cv"), P, { kind: "room", boss: dummy, map: L.getMap(P.mapId), players: 1, net: room }, (result, used) => {
+    battle = null;
+    room.leave().catch(e => console.error(e));
+    idle.hp = null; idle.mon = null;
+    show("scr-main");
+    toast("Đã rời phòng.");
+    if (Object.keys(used || {}).length) markDirty(1000);
+    renderAll();
+    startIdle();
+  });
+  battle.start();
+}
+// ẩn tab quá 1 phút khi đang ở phòng: tự rời phòng cho đỡ tốn dữ liệu
+let hideT = null;
+document.addEventListener("visibilitychange", () => {
+  clearTimeout(hideT);
+  if (document.hidden && battle && battle.room) hideT = setTimeout(() => { if (battle && battle.room) battle._finish("flee"); }, 60000);
+});
 
 // ----- Điều khiển & đồ họa -----
 function ctrlModal() {

@@ -369,17 +369,20 @@ export function activePath(p) {
 }
 export function weaponOk(p, sk) { return !sk.weapon || sk.weapon === equippedWeapon(p); }
 
+// Bản 2.2: mỗi skill có thêm 3 tầng sau cấp tối đa gốc; mỗi tầng tốn 2 điểm và gấp đôi ngọc
+export function skillMaxLv(sk) { return (sk.maxLv || 10) + (S.skillExtraTiers ?? 3); }
 export function upgradeCost(p, id) {
-  const lv = p.skills[id] || 0;
-  return { points: 1, gems: lv === 0 ? 0 : lv * (S.skillGemMul ?? 1) };
+  const lv = p.skills[id] || 0, sk = X.skill[id], extra = sk && lv >= (sk.maxLv || 10);
+  const gems = lv === 0 ? 0 : lv * (S.skillGemMul ?? 1) * (extra ? (S.skillExtraGemMul ?? 2) : 1);
+  return { points: extra ? (S.skillExtraPoints ?? 2) : 1, gems, extra };
 }
 export function upgradeSkill(p, id) {
   const sk = X.skill[id];
   if (!sk || sk.sect !== p.sect) return "Không phải skill của phái.";
   const lv = p.skills[id] || 0;
-  if (lv >= sk.maxLv) return "Đã đạt cấp tối đa.";
+  if (lv >= skillMaxLv(sk)) return "Đã đạt cấp tối đa.";
   const c = upgradeCost(p, id);
-  if (p.skillPoints < c.points) return "Hết điểm skill. Lên cấp để có thêm điểm.";
+  if (p.skillPoints < c.points) return c.extra ? `Tầng này cần ${c.points} điểm skill.` : "Hết điểm skill. Lên cấp để có thêm điểm.";
   if (countKind(p, "skillup") < c.gems) return `Thiếu ngọc: cần ${c.gems} viên ${(miscByKind("skillup")[0] || {}).name || "ngọc nâng skill"}.`;
   if (c.gems) useKind(p, "skillup", c.gems);
   p.skillPoints -= c.points; p.gemsSpent += c.gems;

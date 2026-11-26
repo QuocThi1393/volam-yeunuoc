@@ -1,9 +1,9 @@
-// ===== ĐÁNH BOSS: né đạn thời gian thực (canvas) — bản 2.1 =====
-// Sân lớn hơn màn hình, camera đi theo nhân vật. 2 kiểu điều khiển (A: WASD, B: chuột để đi).
+// ===== ĐÁNH BOSS: né đạn thời gian thực (canvas) — bản 2.2 =====
+// Sân lớn hơn màn hình, camera đi theo nhân vật. 2 kiểu điều khiển (A: WASD, B: chuột để đi). Bản 2.2: phòng thử nhiều người (kind "room").
 import { GD, S, X, elemBonus, elemColor, elemName, miscByKind, WEAPON_NAMES } from "./data.js";
 import {
   calcStats, skillCalc, skillBonusLevels, skillLevel, activePath, weaponOk, equippedWeapon, partyMul,
-  rawSkillDamage, damageTaken, mitigate, critRoll, critMul, rand, clamp, fmt, pick, useMisc
+  rawSkillDamage, damageTaken, mitigate, critRoll, critMul, rand, clamp, fmt, pick, useMisc, skillMaxLv
 } from "./logic.js";
 
 const W = 1280, H = 720;
@@ -18,7 +18,7 @@ const img = src => { if (!src) return null; const i = new Image(); i.src = src; 
 const ready = i => i && i.complete && i.naturalWidth > 0;
 
 export class Battle {
-  // ctx = { kind: "map" | "gold", boss, map, players }
+  // ctx = { kind: "map" | "gold" | "room", boss, map, players, net }   (room = phòng thử nhiều người, boss là mộc nhân)
   constructor(canvas, player, ctx, onEnd) {
     this.cv = canvas; this.c = canvas.getContext("2d");
     canvas.width = W; canvas.height = H;
@@ -62,6 +62,13 @@ export class Battle {
       x: 1350, y: midY, r: 40, tx: 1350, ty: midY, moveT: 0, atkT: 1.5, pi: 0, sub: [], flash: 0,
       charge: 0, cvx: 0, cvy: 0, fx: {}, ccImm: 0, pull: 0, slowPct: 40
     };
+    this.room = this.kind === "room"; this.net = ctx.net || null;
+    if (this.room) {                       // mộc nhân đứng giữa sân, không đánh; người vào phòng đứng rải ra cho khỏi chồng nhau
+      this.B.x = this.B.tx = 1000; this.B.atkT = 1e9;
+      this.pl.x = 520 + Math.random() * 220; this.pl.y = midY + (Math.random() - 0.5) * 420;
+    }
+    this.rem = {}; this.gh = []; this.dealt = 0; this.netT = 0; this.netLast = {}; this.netDmAt = -1; this.dummyT = 0; this.hostSeen = {};
+    if (this.net) { this.net.onCast = (uid, ev) => this._ghostCast(uid, ev); this.net.onDummy = d => this.netDummy(d); if (this.net.dummy) this.netDummy(this.net.dummy); }
     this.pb = []; this.eb = []; this.fx = []; this.texts = [];
     this.traps = []; this.orbit = null; this.minions = []; this.zones = []; this.lasers = []; this.clouds = []; this.booms = [];
     this.later = [];                       // việc hẹn giờ của người chơi (kiếm thứ 2 Lưỡng Nghi...)
@@ -104,7 +111,7 @@ export class Battle {
         if (bo.attr === "crit") extra.crit = (extra.crit || 0) + bo.per * au.lv;
       });
     }
-    if (au && this.auraState === 2) extra.manasteal = (extra.manasteal || 0) + 10 + (Math.min(10, au.lv) - 1) * 40 / 9;   // đang hồi chiêu: hút nội lực 10–50%
+    if (au && this.auraState === 2) extra.manasteal = (extra.manasteal || 0) + 10 + (Math.min(skillMaxLv(au.s), au.lv) - 1) * 40 / 9;   // đang hồi chiêu: hút nội lực 10–50% (tầng 11–13 thêm nữa)
     const old = this.st;
     this.st = calcStats(this.p, extra);
     this.sc = {};
@@ -140,7 +147,7 @@ export class Battle {
     const o = document.createElement("canvas"); o.width = im.naturalWidth; o.height = im.naturalHeight;
     const x = o.getContext("2d"); x.drawImage(im, 0, 0);
     x.globalCompositeOperation = "source-atop"; x.globalAlpha = f.tint === "full" ? 1 : 0.55;
-    x.fillStyle = elemColor(this.el); x.fillRect(0, 0, o.width, o.height);
+    x.fillStyle = f.col || elemColor(this.el); x.fillRect(0, 0, o.width, o.height);
     return (this.tintCache[ck] = o);
   }
   // vẽ hình skill: size = cạnh dài nhất (px), rot = góc mũi hình
@@ -324,6 +331,7 @@ export class Battle {
     if ((m === "boomerang" && this.vk) || (m === "bounce" && this.taiji) || (m === "beam" && this.beamCharge)) return;
     if (pl.mp < sc.mp) return this._note("Thiếu nội lực", "#7fb2f0");
     pl.mp -= sc.mp; pl.cd[slot] = sc.cd || 1;
+    if (this.net) this._netCast(slot, sc, m);
     if (m === "boomerang") { pl.cd[slot] = 0; return this._vkLaunch(slot, sc); }      // hồi chiêu tính từ lúc kiếm về
     if (m === "bounce") { pl.cd[slot] = 0; return this._taijiLaunch(slot, sc); }      // hồi chiêu tính từ lúc vòng tan
     if (m === "beam") { this.beamCharge = { t: 0, slot, sc }; return; }
@@ -603,8 +611,9 @@ export class Battle {
   _hurtBoss(d, crit, color) {
     const B = this.B;
     B.hp -= d; B.flash = 0.08;
+    if (this.room) { this.dealt += d; B.hp = Math.max(0, B.hp); }      // mộc nhân: máu chung do chủ phòng giữ
     this._dmgText(color ? "B" + color : "B", B.x + rand(-25, 25), B.y - B.r - 10, d, crit, color || (crit ? "#ffe070" : "#ffffff"), crit ? 26 : 20);
-    if (B.hp <= 0 && !this.over) { B.hp = 0; this._finish("win"); }
+    if (B.hp <= 0 && !this.over && !this.room) { B.hp = 0; this._finish("win"); }
   }
   _dmgMinion(m, sc, mul, opt) {
     const { d, crit } = this._calcHit(sc, mul, false, m.element, m.def, this.B.lv);
@@ -853,7 +862,11 @@ export class Battle {
     pl.inv = Math.max(0, pl.inv - dt); pl.holy = Math.max(0, pl.holy - dt); pl.immune = Math.max(0, pl.immune - dt);
     this.vkShield = Math.max(0, this.vkShield - dt); this.dashStrikeCd = Math.max(0, this.dashStrikeCd - dt);
     this._tickFx(pl.fx, dt, (dps) => { pl.hp -= dps * dt; if (pl.hp <= 0) this._die(); }, true);
-    this._tickFx(B.fx, dt, (dps) => { B.hp -= dps * dt; if (B.hp <= 0 && !this.over) { B.hp = 0; this._finish("win"); } }, false);
+    this._tickFx(B.fx, dt, (dps) => {
+      B.hp -= dps * dt;
+      if (this.room) { this.dealt += dps * dt; B.hp = Math.max(0, B.hp); }
+      else if (B.hp <= 0 && !this.over) { B.hp = 0; this._finish("win"); }
+    }, false);
     B.ccImm = Math.max(0, B.ccImm - dt);
     if (this.buff) { this.buff.t -= dt; if (this.buff.t <= 0) { this.buff = null; this._refreshStats(); } }
     const au = this.passive.aura;
@@ -924,6 +937,7 @@ export class Battle {
     this._updateMinions(dt);
     this._updateHazards(dt);
     this._updateBullets(dt);
+    if (this.net) { this._netTick(dt); this._updateGhosts(dt); }
   }
 
   _tickFx(fx, dt, hurt, isPlayer) {
@@ -1022,6 +1036,7 @@ export class Battle {
   _updateBoss(dt) {
     const B = this.B, pl = this.pl;
     B.flash = Math.max(0, B.flash - dt);
+    if (this.room) return;                  // mộc nhân không đi, không đánh
     const stopped = B.fx.freeze > 0 || B.fx.stun > 0;
     const spMul = B.fx.slow > 0 ? 1 - clamp(B.slowPct ?? 40, 0, 90) / 100 : 1;
     if (B.charge > 0 && !stopped) {
@@ -1207,6 +1222,7 @@ export class Battle {
 
     for (const m of this.minions) this._drawMinion(c, m);
     this._drawBoss(c, B);
+    if (this.net) this._drawRemotes(c);
     this._drawPlayer(c, pl);
     this._drawSkills(c);
 
@@ -1227,6 +1243,7 @@ export class Battle {
       if (b.kind === "img" && this._drawFx(c, b.slot, b.key, b.x, b.y, a, clamp(b.sc.size * 4, 30, 64) * b.size)) continue;
       c.fillStyle = b.conv ? "#c8f" : pc; c.beginPath(); c.arc(b.x, b.y, b.r, 0, TAU); c.fill();
     }
+    if (this.net) this._drawGhosts(c);
     // bánh xe
     for (const o of this.booms) {
       c.save(); c.translate(o.x, o.y); c.rotate(o.rot);
@@ -1266,7 +1283,7 @@ export class Battle {
       c.fillStyle = "#fff"; c.font = "600 40px sans-serif"; c.textAlign = "center";
       c.fillText("Tạm dừng", W / 2, H / 2 - 60);
       c.font = "22px sans-serif"; c.fillStyle = "#ccc";
-      c.fillText("Esc: tiếp tục   ·   F: bỏ chạy (không nhận thưởng)", W / 2, H / 2 - 15);
+      c.fillText(this.room ? "Esc: tiếp tục   ·   F: rời phòng" : "Esc: tiếp tục   ·   F: bỏ chạy (không nhận thưởng)", W / 2, H / 2 - 15);
       c.font = "18px sans-serif"; c.fillStyle = "#f2c230";
       c.fillText(`C: điều khiển kiểu ${this.modeB ? "B (chuột để đi)" : "A (WASD)"}   ·   G: đồ họa ${this.low ? "Thấp" : "Cao"}   ·   P: FPS ${this.p.showFps ? "bật" : "tắt"}`, W / 2, H / 2 + 25);
       c.font = "15px sans-serif"; c.fillStyle = "#999";
@@ -1413,6 +1430,7 @@ export class Battle {
   }
 
   _drawBoss(c, B) {
+    if (this.room && !ready(this.imgBoss)) return this._drawDummy(c, B);
     const col = elemColor(B.element);
     c.fillStyle = "rgba(0,0,0,0.35)"; c.beginPath(); c.ellipse(B.x, B.y + B.r - 2, B.r, 9, 0, 0, TAU); c.fill();
     if (B.hp < B.maxHp * 0.5 && !this.low) {
@@ -1485,13 +1503,13 @@ export class Battle {
     for (const [t, col] of tags) { c.fillStyle = col; c.fillText(t, tx, 49); tx += c.measureText(t).width + 12; }
 
     c.textAlign = "center"; c.fillStyle = "#cfcfcf"; c.font = "16px sans-serif";
-    const where = this.kind === "gold" ? "Boss Hoàng Kim" : (this.map ? this.map.name : "");
+    const where = this.kind === "gold" ? "Boss Hoàng Kim" : this.room ? `Phòng thử · ${this.net ? Object.keys(this.net.players).length : 1}/5 người` : (this.map ? this.map.name : "");
     c.fillText(`${where} · ${Math.floor(this.time / 60)}:${String(Math.floor(this.time % 60)).padStart(2, "0")}`, W / 2, 30);
     if (this.bossBonus > 1) { c.fillStyle = "#6fd06f"; c.fillText(`Khắc chế boss: +${S.counterBonus ?? 15}% sát thương`, W / 2, 54); }
     else if (this.takenBonus > 1) { c.fillStyle = "#ff8a70"; c.fillText(`Bị boss khắc: nhận thêm ${S.counterBonus ?? 15}% sát thương`, W / 2, 54); }
 
     c.textAlign = "right"; c.font = "600 18px sans-serif"; c.fillStyle = elemColor(B.element);
-    c.fillText(`${B.name} Lv${B.lv} (${elemName(B.element)})`, 1250, 26);
+    c.fillText(this.room ? `${B.name} · máu chung cả phòng` : `${B.name} Lv${B.lv} (${elemName(B.element)})`, 1250, 26);
     this._bar(c, 850, 36, 400, 16, B.hp, B.maxHp, "#d94040", "#3d1d1d");
     c.font = "13px sans-serif"; c.fillStyle = "#fff";
     c.fillText(`${fmt(B.hp)} / ${fmt(B.maxHp)}`, 1244, 49);
@@ -1547,5 +1565,298 @@ export class Battle {
     });
     c.textAlign = "left"; c.fillStyle = "#777"; c.font = "13px sans-serif";
     c.fillText(B2 ? "Kiểu B: chuột trái để đi · Esc tạm dừng, đổi điều khiển" : "Kiểu A: WASD di chuyển · Esc tạm dừng, đổi điều khiển", 30, 714);
+    if (this.net) this._drawNetHud(c);
+  }
+
+  // ===================== CHƠI CHUNG (bản 2.2) =====================
+  // Người khác trong phòng: vị trí làm mượt, chiêu chỉ để nhìn (không gây sát thương lên mình).
+  _netCast(slot, sc, m) {
+    const pl = this.pl, k = this.sk[slot];
+    const buff = (m === "buff_stat" || (slot === "q" && sc.stats.length)) && !["boomerang", "bounce", "beam", "tornado", "cone", "invuln", "orbit"].includes(m);
+    this.net.cast({ k: slot, sid: k.s.id, c: buff ? "buff" : m, a: Math.round(pl.aim * 100) / 100,
+      tx: Math.round(this.mouse.x), ty: Math.round(this.mouse.y), n: sc.count || 1, s: Math.round(sc.size || 0), d: Math.round((sc.dur || 0) * 10) / 10 });
+  }
+  // hình đạn skill của người khác, tô màu theo hệ phái của họ
+  _remoteFx(sid, sect) {
+    const key = "r:" + sid;
+    if (!sid || this.fxi[key]) return key;
+    const s = X.skill[sid]; if (!s) return key;
+    this.fxi[key] = { A: img(s.fxA), B: img(s.fxB), F: [s.fxF1, s.fxF2, s.fxF3, s.fxF4].map(img),
+      rotA: (s.fxARot || 0) * DEG, rotB: (s.fxBRot || 0) * DEG, tint: s.fxTint || "none", col: elemColor((X.sect[sect] || {}).element) };
+    return key;
+  }
+  _netTick(dt) {
+    const R = this.net, pl = this.pl, k = 1 - Math.exp(-14 * dt);
+    for (const uid in R.players) {
+      if (uid === R.uid) continue;
+      const s = R.players[uid];
+      let r = this.rem[uid];
+      if (!r) {
+        const g = X.gender[s.g] || {};
+        r = this.rem[uid] = { uid, x: s.x ?? 650, y: s.y ?? 550, a: s.a || 0, fireT: 0, fa: 0, holy: 0, buff: 0, orbit: null, beam: null,
+          img: img(g["sprite_" + (s.w || "none")] || g.sprite_none), col: elemColor((X.sect[s.s] || {}).element), robe: (X.sect[s.s] || {}).robe || "#888" };
+      }
+      r.s = s;
+      r.x += ((s.x ?? r.x) - r.x) * k; r.y += ((s.y ?? r.y) - r.y) * k;     // làm mượt giữa các lần nhận
+      r.a += angDiff(s.a ?? r.a, r.a) * k;
+      r.holy = Math.max(0, r.holy - dt); r.buff = Math.max(0, r.buff - dt);
+      if (r.orbit) { r.orbit.t -= dt; r.orbit.ang += dt * 3.2; if (r.orbit.t <= 0) r.orbit = null; }
+      const lm = X.skill[s.lm];
+      if (s.at && lm) {
+        if (lm.mech === "orbit") r.fa += (3 + (s.as || 20) / 10 * 2.2) * dt;
+        r.fireT -= dt;
+        if (r.fireT <= 0) r.fireT = this._ghostLmb(r, lm);
+      } else r.fireT = 0;
+      if (r.beam) {
+        r.beam.t += dt;
+        if (r.beam.t >= 0.4) { this.beams.push({ x: r.x, y: r.y, angs: r.beam.angs, t: 0, life: 0.45, slot: r.beam.slot, L: 1900 }); r.beam = null; }
+      }
+    }
+    for (const uid in this.rem) if (!R.players[uid]) delete this.rem[uid];   // đã rời phòng
+    // gửi trạng thái của mình: tối đa 10 lần/giây, chỉ phần thay đổi; ẩn tab thì không gửi
+    this.netT -= dt;
+    if (this.netT <= 0 && !document.hidden) {
+      this.netT = 1 / (S.netRate || 10);
+      const sc = this.sc.lmb, lk = this.sk.lmb;
+      const cur = {
+        x: Math.round(pl.x), y: Math.round(pl.y), a: Math.round(pl.aim * 20) / 20,
+        at: this._firing() && lk && lk.learned && lk.ok && this._can("cast") ? 1 : 0,
+        hp: Math.round(100 * pl.hp / Math.max(1, this.st.hp)),
+        lm: lk && lk.learned && lk.ok ? lk.s.id : "", ln: sc ? sc.count : 1, ls: sc ? Math.round(sc.size || 0) : 0,
+        as: sc ? Math.round(sc.aspd * this._atkMul() * 10) : 0
+      };
+      if (this.time - this.netDmAt >= 0.5) { cur.dm = Math.round(this.dealt); this.netDmAt = this.time; }
+      const patch = {}; let any = false;
+      for (const key in cur) if (cur[key] !== this.netLast[key]) { patch[key] = cur[key]; this.netLast[key] = cur[key]; any = true; }
+      if (any) R.send(patch);
+    }
+    if (R.isHost()) this._hostDummy(dt);
+  }
+  // chủ phòng: cộng sát thương của cả phòng vào mộc nhân, vỡ thì 2 giây sau dựng lại
+  _hostDummy(dt) {
+    const R = this.net, B = this.B;
+    for (const uid in R.players) {
+      if (uid === R.uid) continue;
+      const dm = R.players[uid].dm || 0, last = this.hostSeen[uid];
+      if (last === undefined) { this.hostSeen[uid] = dm; continue; }      // mới làm chủ phòng: tính từ lúc này
+      if (dm > last) { B.hp = Math.max(0, B.hp - (dm - last)); this.hostSeen[uid] = dm; B.flash = 0.06; }
+    }
+    if (B.hp <= 0 && !this.dummyDown) {
+      this.dummyDown = 2; this.dummyGen = (this.dummyGen || 0) + 1;
+      this.texts.push({ x: B.x, y: B.y - 90, t: 0, text: "Mộc nhân vỡ! Dựng lại...", color: "#ffd23f", size: 20 });
+    }
+    if (this.dummyDown) { this.dummyDown -= dt; if (this.dummyDown <= 0) { this.dummyDown = 0; B.hp = B.maxHp; } }
+    this.dummyT -= dt;
+    const d = { hp: Math.round(B.hp), mx: B.maxHp, g: this.dummyGen || 0 }, L = this.dLast;
+    if (this.dummyT <= 0 && (!L || L.hp !== d.hp || L.g !== d.g)) { this.dummyT = 0.2; this.dLast = d; R.setDummy(d); }
+  }
+  // người khác làm chủ phòng: nhận máu mộc nhân
+  netDummy(d) {
+    if (!this.net || this.net.isHost()) return;
+    const B = this.B;
+    if (this.dGen !== undefined && d.g !== this.dGen) this.texts.push({ x: B.x, y: B.y - 90, t: 0, text: "Mộc nhân vỡ! Dựng lại...", color: "#ffd23f", size: 20 });
+    this.dGen = d.g; this.dummyGen = d.g; B.maxHp = d.mx || B.maxHp; B.hp = d.hp;
+  }
+
+  // ---- đạn "bóng" của người khác: chỉ để nhìn, trúng mộc nhân thì tan ----
+  _ghost(r, a, o = {}) {
+    if (this.gh.length > 160) return;
+    const sp = o.sp || 620;
+    this.gh.push({ x: r.x + Math.cos(a) * 20, y: r.y + Math.sin(a) * 20, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, a, age: 0,
+      life: o.life || 1.6, slot: o.slot, key: o.key || "A", kind: o.kind || "shot", moon: !!o.moon, size: o.size || 1,
+      sz: o.sz || 8, r: o.r || 8, r0: o.r || 8, col: r.col, owner: r, ...o.extra });
+  }
+  _ghostLmb(r, sk) {
+    const s = r.s, slot = this._remoteFx(sk.id, s.s), m = sk.mech, a = r.a, n = Math.max(1, s.ln || 1), sz = s.ls || 8;
+    const gap = 1 / Math.max(0.3, (s.as || 20) / 10);
+    if (m === "orbit") return 0.2;                         // nắm đấm xoay: vẽ ở _drawRemotes
+    if (m === "staff_trap") {
+      for (let i = 0; i < n; i++) {
+        const aa = a + (i ? rand(-0.25, 0.25) : 0), d = Math.min(460, 320 + rand(-40, 40));
+        this._ghost(r, aa, { kind: "staff", sp: 720, extra: { tx: r.x + Math.cos(aa) * d, ty: r.y + Math.sin(aa) * d, rot: 0, tr: Math.max(40, sz), td: Math.max(0.5, sk.dur || 2) } });
+      }
+    } else if (m === "twin_sword") {
+      this._ghost(r, a, { slot, key: "A", sz });
+      this.later.push({ t: 0.12, fn: () => this._ghost(r, a, { slot, key: "B", sz, size: 0.85 }) });
+    } else {
+      for (let i = 0; i < n; i++) {
+        const moon = m === "crescent";
+        this._ghost(r, a + (i - (n - 1) / 2) * 0.13, { slot, moon, sz, r: moon ? Math.max(10, sz) : Math.max(6, Math.min(16, sz)) });
+      }
+    }
+    return gap;
+  }
+  _ghostCast(uid, ev) {
+    const r = this.rem[uid]; if (!r || !r.s) return;
+    const sk = X.skill[ev.sid]; if (!sk) return;
+    const slot = this._remoteFx(ev.sid, r.s.s), a = ev.a || 0, n = Math.max(1, ev.n || 1), size = ev.s || 0;
+    switch (ev.c) {
+      case "cone": this.fx.push({ type: "cone", x: r.x, y: r.y, ang: a, len: size || 250, half: 32 * DEG, t: 0, life: 0.4, slot }); break;
+      case "circle": case "debuff_area": this.fx.push({ type: "ring", x: r.x, y: r.y, r: size || 150, t: 0, life: 0.45, color: r.col }); break;
+      case "ground_burst": this.fx.push({ type: "ring", x: ev.tx ?? r.x, y: ev.ty ?? r.y, r: size || 150, t: 0, life: 0.45, color: r.col }); break;
+      case "invuln": case "shield": r.holy = Math.max(1, ev.d || 2); break;
+      case "buff": r.buff = Math.max(1, ev.d || 3); break;
+      case "orbit": r.orbit = { t: Math.max(1, ev.d || 3), n, r: Math.max(50, size), ang: 0 }; break;
+      case "boomerang":
+        for (let i = 0; i < n; i++) this._ghost(r, a + (i - (n - 1) / 2) * 0.2, { kind: "vk", slot, sp: 1300, life: Math.max(1, ev.d || 4) + 1.5, extra: { st: "out", d: 0, hold: Math.max(1, ev.d || 4) } });
+        break;
+      case "bounce": this._ghost(r, a, { kind: "taiji", slot, sp: 560, life: Math.max(0.5, ev.d || 3.5), r: Math.max(18, size * 0.55), extra: { rot: 0 } }); break;
+      case "beam": {
+        const fan = 40 * DEG;
+        r.beam = { t: 0, slot, angs: n === 1 ? [a] : Array.from({ length: n }, (_, i) => a - fan / 2 + fan * i / (n - 1)) };
+        break;
+      }
+      case "tornado": {
+        const rMax = Math.max(40, size * 0.55);
+        this._ghost(r, a, { kind: "tornado", slot, sp: 470, life: Math.max(0.5, ev.d || 1.6), r: rMax * 0.28, extra: { r1: rMax, k: 0 } });
+        break;
+      }
+      default: this._ghost(r, a, { slot, key: "A", sz: size || 8, r: Math.max(6, Math.min(16, size || 8)) });
+    }
+  }
+  _updateGhosts(dt) {
+    const B = this.B;
+    const hitDummy = (x, y, rr) => dist(x, y, B.x, B.y) < rr + B.r;
+    for (const g of this.gh) {
+      g.age += dt; g.life -= dt;
+      if (g.kind === "staff") {
+        g.rot += dt * 18;
+        const d = dist(g.x, g.y, g.tx, g.ty), step = 720 * dt;
+        if (d <= step) { g.kind = "trap"; g.x = g.tx; g.y = g.ty; g.life = g.td; g.r = g.tr; continue; }
+        g.x += (g.tx - g.x) / d * step; g.y += (g.ty - g.y) / d * step;
+        continue;
+      }
+      if (g.kind === "trap") continue;
+      if (g.kind === "vk") {
+        const o = g.owner;
+        if (g.st === "out") {
+          g.x += g.vx * dt; g.y += g.vy * dt; g.d += 1300 * dt;
+          if (g.d >= 620 || g.x < AR.x1 || g.x > AR.x2 || g.y < AR.y1 || g.y > AR.y2) g.st = "hold";
+        }
+        if (g.st !== "back" && g.age >= g.hold) g.st = "back";
+        if (g.st === "back") {
+          const a = Math.atan2(o.y - g.y, o.x - g.x), d = dist(g.x, g.y, o.x, o.y), step = 1500 * dt;
+          g.ba = a;
+          if (d <= step + 20) { g.life = 0; continue; }
+          g.x += Math.cos(a) * step; g.y += Math.sin(a) * step;
+        }
+        continue;
+      }
+      g.x += g.vx * dt; g.y += g.vy * dt;
+      if (g.kind === "taiji") {
+        g.rot += dt * 5;
+        if (g.x < AR.x1 + g.r || g.x > AR.x2 - g.r) g.vx = -g.vx;
+        if (g.y < AR.y1 + g.r || g.y > AR.y2 - g.r) g.vy = -g.vy;
+        g.x = clamp(g.x, AR.x1 + g.r, AR.x2 - g.r); g.y = clamp(g.y, AR.y1 + g.r, AR.y2 - g.r);
+        if (hitDummy(g.x, g.y, g.r)) { this.fx.push({ type: "ring", x: g.x, y: g.y, r: g.r * 1.6, t: 0, life: 0.4, color: g.col }); g.life = 0; }
+        continue;
+      }
+      if (g.kind === "tornado") {
+        g.k = Math.min(1, g.age / Math.max(0.1, g.age + g.life)); g.r = g.r0 + (g.r1 - g.r0) * g.k;
+        if (hitDummy(g.x, g.y, g.r)) { this.fx.push({ type: "ring", x: g.x, y: g.y, r: g.r * 1.3, t: 0, life: 0.45, color: "#bfe8ff" }); g.life = 0; }
+        continue;
+      }
+      if (g.moon) g.r = g.r0 * (1 + 0.3 * Math.min(1, g.age / 0.8));
+      if (hitDummy(g.x, g.y, g.r * 0.8)) { g.life = 0; this._spark(g.x, g.y, g.col, 4); }
+    }
+    this.gh = this.gh.filter(g => g.life > 0 && g.x > AR.x1 - 60 && g.x < AR.x2 + 60 && g.y > AR.y1 - 60 && g.y < AR.y2 + 60);
+  }
+  _drawGhosts(c) {
+    for (const g of this.gh) {
+      if (!this._inView(g.x, g.y, 120)) continue;
+      const a = Math.atan2(g.vy, g.vx);
+      if (g.kind === "staff") { this._drawStaff(c, g.x, g.y, g.rot, 0.8); continue; }
+      if (g.kind === "trap") { this._drawStaff(c, g.x, g.y, 0, 0.9, g.r); continue; }
+      if (g.kind === "vk") {
+        const back = g.st === "back", ang = back ? (g.ba ?? a + Math.PI) : g.a;
+        if (!this._drawFx(c, g.slot, back ? "B" : "A", g.x, g.y, ang, 62)) {
+          c.save(); c.translate(g.x, g.y); c.rotate(ang); c.strokeStyle = g.col; c.lineWidth = 4; c.beginPath(); c.moveTo(-24, 0); c.lineTo(24, 0); c.stroke(); c.restore();
+        }
+        continue;
+      }
+      if (g.kind === "taiji") {
+        if (!this._drawFx(c, g.slot, "A", g.x, g.y, g.rot, g.r * 2.3)) { c.strokeStyle = g.col; c.lineWidth = 4; c.beginPath(); c.arc(g.x, g.y, g.r, 0, TAU); c.stroke(); }
+        continue;
+      }
+      if (g.kind === "tornado") {
+        const f = Math.min(3, Math.floor((g.k || 0) * 4));
+        if (!this._drawFx(c, g.slot, "F", g.x, g.y - g.r * 0.25, 0, g.r * 2.6, 1, f)) { c.strokeStyle = "#bfe6ff"; c.lineWidth = 3; c.beginPath(); c.arc(g.x, g.y, g.r, 0, TAU); c.stroke(); }
+        continue;
+      }
+      if (g.moon) {
+        if (this._drawFx(c, g.slot, "A", g.x, g.y, a, g.r * 2.3)) continue;
+        c.lineCap = "round"; c.strokeStyle = g.col; c.lineWidth = Math.max(4, g.r * 0.32);
+        c.beginPath(); c.arc(g.x, g.y, g.r, a - 1.15, a + 1.15); c.stroke();
+        continue;
+      }
+      if (this._drawFx(c, g.slot, g.key, g.x, g.y, a, clamp(g.sz * 4, 30, 64) * g.size)) continue;
+      c.fillStyle = g.col; c.beginPath(); c.arc(g.x, g.y, g.r, 0, TAU); c.fill();
+    }
+  }
+  _drawRemotes(c) {
+    for (const uid in this.rem) {
+      const r = this.rem[uid], s = r.s || {};
+      if (!this._inView(r.x, r.y, 140)) continue;
+      c.fillStyle = "rgba(0,0,0,0.35)"; c.beginPath(); c.ellipse(r.x, r.y + 26, 18, 6, 0, 0, TAU); c.fill();
+      if (ready(r.img)) {
+        const h = 96, w = h * r.img.naturalWidth / r.img.naturalHeight;
+        c.save(); c.translate(r.x, r.y + 30); if (Math.cos(r.a) > 0) c.scale(-1, 1); c.drawImage(r.img, -w / 2, -h, w, h); c.restore();
+      } else {
+        c.fillStyle = r.robe; c.strokeStyle = "#222"; c.lineWidth = 2.5; c.beginPath(); c.arc(r.x, r.y, 16, 0, TAU); c.fill(); c.stroke();
+        c.fillStyle = "#f2cfa4"; c.beginPath(); c.arc(r.x, r.y - 18, 9, 0, TAU); c.fill();
+      }
+      if (r.holy > 0) { c.strokeStyle = "rgba(255,225,120,0.7)"; c.fillStyle = "rgba(255,225,120,0.12)"; c.lineWidth = 3; c.beginPath(); c.arc(r.x, r.y - 10, 44, 0, TAU); c.fill(); c.stroke(); }
+      if (r.buff > 0) { c.strokeStyle = "rgba(242,194,48,0.7)"; c.lineWidth = 3; c.beginPath(); c.arc(r.x, r.y - 10, 48, 0, TAU); c.stroke(); }
+      if (r.orbit) for (let i = 0; i < r.orbit.n; i++) {
+        const a = r.orbit.ang + i * TAU / r.orbit.n;
+        this._drawStaff(c, r.x + Math.cos(a) * r.orbit.r, r.y + Math.sin(a) * r.orbit.r, a + Math.PI / 2, 0.8);
+      }
+      const lm = X.skill[s.lm];
+      if (s.at && lm && lm.mech === "orbit") {            // nắm đấm Trường Quyền xoay quanh người
+        const rr = Math.max(50, s.ls || 50), fx = r.x + Math.cos(r.fa) * rr, fy = r.y + Math.sin(r.fa) * rr;
+        if (!this._drawFx(c, this._remoteFx(lm.id, s.s), "A", fx, fy, r.fa, 34)) { c.fillStyle = r.col; c.beginPath(); c.arc(fx, fy, 12, 0, TAU); c.fill(); }
+      }
+      if (r.beam) {
+        c.strokeStyle = "rgba(150,215,255,0.5)"; c.lineWidth = 1; c.setLineDash([4, 8]);
+        for (const a of r.beam.angs) { c.beginPath(); c.moveTo(r.x, r.y); c.lineTo(r.x + Math.cos(a) * 1900, r.y + Math.sin(a) * 1900); c.stroke(); }
+        c.setLineDash([]);
+      }
+      // tên + cấp + thanh máu nhỏ
+      c.textAlign = "center"; c.font = "600 15px sans-serif";
+      const tag = `${s.n || "?"} Lev.${s.l || 1}`;
+      if (!this.low) { c.lineWidth = 4; c.strokeStyle = "rgba(0,0,0,0.85)"; c.strokeText(tag, r.x, r.y - 80); }
+      c.fillStyle = "#9fd8ff"; c.fillText(tag, r.x, r.y - 80);
+      this._bar(c, r.x - 24, r.y - 74, 48, 4, s.hp ?? 100, 100, "#d94040", "#3d1d1d");
+    }
+  }
+  _drawDummy(c, B) {
+    const x = B.x, y = B.y, down = B.hp <= 0;
+    c.fillStyle = "rgba(0,0,0,0.35)"; c.beginPath(); c.ellipse(x, y + 44, 34, 9, 0, 0, TAU); c.fill();
+    c.save(); c.translate(x, y); if (down) c.rotate(0.5);
+    const wood = B.flash > 0 ? "#fff" : "#8a6038", dark = "#5a3a1e";
+    c.fillStyle = dark; c.fillRect(-6, 10, 12, 36);                                   // cọc
+    c.fillStyle = wood; c.strokeStyle = dark; c.lineWidth = 3;
+    c.beginPath(); c.roundRect ? c.roundRect(-22, -26, 44, 44, 8) : c.rect(-22, -26, 44, 44); c.fill(); c.stroke();   // thân
+    c.fillRect(-46, -16, 92, 10); c.strokeRect(-46, -16, 92, 10);                    // tay ngang
+    c.beginPath(); c.arc(0, -42, 15, 0, TAU); c.fill(); c.stroke();                   // đầu
+    c.strokeStyle = "rgba(90,58,30,0.6)"; c.lineWidth = 2;
+    c.beginPath(); c.moveTo(-14, -10); c.lineTo(14, -10); c.moveTo(-14, 4); c.lineTo(14, 4); c.stroke();
+    c.restore();
+    if (B.fx.freeze > 0) { c.fillStyle = "rgba(190,232,255,0.3)"; c.beginPath(); c.arc(x, y, B.r + 6, 0, TAU); c.fill(); }
+    if (B.fx.stun > 0) { c.fillStyle = "#f2e070"; for (let i = 0; i < 3; i++) { const a = this.time * 6 + i * TAU / 3; c.beginPath(); c.arc(x + Math.cos(a) * 22, y - 66 + Math.sin(a) * 6, 4, 0, TAU); c.fill(); } }
+  }
+  _drawNetHud(c) {
+    const R = this.net;
+    const list = Object.keys(R.players).map(uid => {
+      const s = R.players[uid], me = uid === R.uid;
+      return { n: me ? this.p.name : s.n, dm: me ? this.dealt : (s.dm || 0), me };
+    }).sort((a, b) => b.dm - a.dm);
+    c.textAlign = "right"; c.font = "12px sans-serif";
+    let y = 86;
+    c.fillStyle = "#8a8d96"; c.fillText("Sát thương", 1250, y); y += 16;
+    for (const x of list) { c.fillStyle = x.me ? "#f2c230" : "#cfcfcf"; c.fillText(`${x.n}  ${fmt(x.dm)}`, 1250, y); y += 15; }
+    // góc dưới phải, chữ nhỏ: độ trễ và dữ liệu đã nhận (ước tính)
+    c.font = "10px sans-serif"; c.fillStyle = "#5c5f68";
+    c.fillText(`${R.stats.ping}ms · ${(R.stats.bytes / 1048576).toFixed(1)}MB`, 1274, 716);
   }
 }

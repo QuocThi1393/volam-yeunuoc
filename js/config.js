@@ -2,12 +2,14 @@
 // Bước 1: Dán cấu hình Firebase của anh vào đây (lấy trong Firebase Console > Project settings > Your apps > Web app).
 // Khi còn để "DIEN_VAO_DAY", game chạy CHẾ ĐỘ THỬ: lưu trên trình duyệt, đăng nhập tên gì cũng được.
 export const FIREBASE_CONFIG = {
-  apiKey: "DIEN_VAO_DAY",
-  authDomain: "DIEN_VAO_DAY.firebaseapp.com",
-  projectId: "DIEN_VAO_DAY",
-  storageBucket: "DIEN_VAO_DAY.appspot.com",
-  messagingSenderId: "DIEN_VAO_DAY",
-  appId: "DIEN_VAO_DAY"
+  apiKey: "AIzaSyAV-LhsK2gTbjbWTbQktfLTssXo6ZCswsQ",
+  authDomain: "volam-yeunuoc.firebaseapp.com",
+  projectId: "volam-yeunuoc",
+  storageBucket: "volam-yeunuoc.firebasestorage.app.appspot.com",
+  messagingSenderId: "554918308125",
+  appId: "1:554918308125:web:85b3c63fc03b1bf94359f4",
+  // Bản 2.2 (chơi chung): địa chỉ Realtime Database, dạng https://ten-du-an-default-rtdb.asia-southeast1.firebasedatabase.app
+  databaseURL: "https://volam-yeunuoc-default-rtdb.asia-southeast1.firebasedatabase.app"
 };
 
 // Tên đăng nhập sẽ được ghép thành email: tendangnhap@vlyn.game

@@ -2,7 +2,7 @@
 import { FIREBASE_CONFIG, LOGIN_DOMAIN, ADMIN_USERNAMES } from "./config.js";
 
 export const DEMO = String(FIREBASE_CONFIG.apiKey).startsWith("DIEN_");
-const V = "10.12.2";
+export const V = "10.12.2";
 let fb = null;
 
 const toUser = (uid, username) => ({
@@ -11,7 +11,7 @@ const toUser = (uid, username) => ({
 
 export async function init(onUser) {
   if (DEMO) {
-    const u = localStorage.getItem("vlyn_session");
+    const u = sessionStorage.getItem("vlyn_session") || localStorage.getItem("vlyn_session");   // mỗi tab nhớ tài khoản riêng (thử nhiều người trên 1 máy)
     onUser(u ? toUser("demo_" + u, u) : null);
     return;
   }
@@ -19,7 +19,7 @@ export async function init(onUser) {
   const authM = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-auth.js`);
   const fsM = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-firestore.js`);
   const app = appM.initializeApp(FIREBASE_CONFIG);
-  fb = { auth: authM.getAuth(app), db: fsM.getFirestore(app), authM, fsM };
+  fb = { app, auth: authM.getAuth(app), db: fsM.getFirestore(app), authM, fsM };
   authM.onAuthStateChanged(fb.auth, user => {
     if (!user) return onUser(null);
     const username = (user.email || "").split("@")[0].toLowerCase();
@@ -44,13 +44,13 @@ export function cleanUsername(u) { return String(u || "").trim().toLowerCase(); 
 export async function login(username, password) {
   username = cleanUsername(username);
   if (!/^[a-z0-9_.]{2,30}$/.test(username)) throw new Error("Tên đăng nhập chỉ gồm chữ không dấu, số, dấu _ hoặc .");
-  if (DEMO) { localStorage.setItem("vlyn_session", username); location.reload(); return; }
+  if (DEMO) { localStorage.setItem("vlyn_session", username); sessionStorage.setItem("vlyn_session", username); location.reload(); return; }
   try { await fb.authM.signInWithEmailAndPassword(fb.auth, `${username}@${LOGIN_DOMAIN}`, password); }
   catch (e) { throw new Error(msg(e)); }
 }
 
 export async function logout() {
-  if (DEMO) { localStorage.removeItem("vlyn_session"); location.reload(); return; }
+  if (DEMO) { localStorage.removeItem("vlyn_session"); sessionStorage.removeItem("vlyn_session"); location.reload(); return; }
   await fb.authM.signOut(fb.auth);
   location.reload();
 }
@@ -72,14 +72,38 @@ export async function loadPlayer(uid) {
     return s ? JSON.parse(s) : null;
   }
   const snap = await fb.fsM.getDoc(fb.fsM.doc(fb.db, "players", uid));
-  return snap.exists() ? snap.data() : null;
+  const data = snap.exists() ? snap.data() : null;
+  const bk = readBackup(uid);         // bản lưu tạm trong máy (lúc lưu lên Firebase bị lỗi) mới hơn thì dùng bản đó
+  if (bk && (!data || (bk.lastSeen || 0) > (data.lastSeen || 0))) return bk;
+  return data;
 }
 
 export async function savePlayer(uid, p) {
   const data = JSON.parse(JSON.stringify(p));
   if (DEMO) { localStorage.setItem("vlyn_player_" + uid, JSON.stringify(data)); return; }
-  await fb.fsM.setDoc(fb.fsM.doc(fb.db, "players", uid), data);
+  // ghi bản dự phòng trong máy trước; Firebase xác nhận xong mới xóa (mất mạng giữa chừng cũng không mất tiến độ)
+  try { localStorage.setItem(BK + uid, JSON.stringify(data)); } catch (e2) { /* máy đầy bộ nhớ */ }
+  try { await fb.fsM.setDoc(fb.fsM.doc(fb.db, "players", uid), data); }
+  catch (e) { e.backup = true; throw e; }
+  const cur = readBackup(uid);
+  if (cur && cur.lastSeen === data.lastSeen) localStorage.removeItem(BK + uid);
 }
+
+// ===== Lưu dự phòng trong máy khi Firebase lỗi (hết hạn mức, mất mạng...) =====
+const BK = "vlyn_backup_";
+function readBackup(uid) { try { const s = localStorage.getItem(BK + uid); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
+
+// Nhân vật chơi ở chế độ thử còn trên trình duyệt này (để chuyển lên Firebase lần đầu)
+export function demoPlayers() {
+  const out = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (!k.startsWith("vlyn_player_")) continue;
+    try { out.push({ key: k, ...JSON.parse(localStorage.getItem(k)) }); } catch (e) { /* bỏ qua */ }
+  }
+  return out;
+}
+export function fbApp() { return fb ? fb.app : null; }
 
 export async function listPlayers() {
   if (DEMO) {
