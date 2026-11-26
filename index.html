@@ -52,8 +52,9 @@
       <button data-tab="bag" id="tab-btn-bag">Túi đồ</button>
       <button data-tab="skill" id="tab-btn-skill">Kỹ năng</button>
       <button data-tab="shop">Cửa hàng</button>
-      <button data-tab="book" id="tab-btn-book">Bí kíp</button>
+      <button data-tab="market">Chợ</button>
       <button data-tab="admin" id="tab-btn-admin" class="hidden">Admin</button>
+      <button id="btn-ctrl">Điều khiển</button>
       <button id="btn-pass">Đổi mật khẩu</button>
       <button id="btn-logout">Đăng xuất</button>
     </nav>
@@ -74,7 +75,9 @@
       <div class="panel">
         <div class="sk-head"><span class="panel-t" id="bag-e-title">Ngăn trang bị</span>
           <span><label class="chk"><input type="checkbox" id="bag-auto"> Tự bán đồ Thường</label>
-          <button class="btn ghost small-btn" id="bag-sellall">Bán hết đồ Thường</button></span></div>
+          <button class="btn ghost small-btn" id="bag-sellall">Bán hết Thường</button>
+          <button class="btn ghost small-btn qs1" id="bag-sell1">Bán hết xanh</button>
+          <button class="btn ghost small-btn qs2" id="bag-sell2">Bán hết tím</button></span></div>
         <div class="bag-grid" id="bag-grid"></div>
       </div>
       <div class="panel">
@@ -87,7 +90,7 @@
 
   <div id="tab-skill" class="tab hidden"></div>
   <div id="tab-shop" class="tab hidden"></div>
-  <div id="tab-book" class="tab hidden"></div>
+  <div id="tab-market" class="tab hidden"></div>
   <div id="tab-admin" class="tab hidden"></div>
 </section>
 

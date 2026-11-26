@@ -12,5 +12,18 @@ service cloud.firestore {
       allow read: if request.auth != null && (request.auth.uid == uid || isAdmin());
       allow write: if request.auth != null && request.auth.uid == uid;
     }
+
+    // Chợ: ai đăng nhập cũng xem được; chỉ rao hàng đứng tên mình; xóa khi rút về hoặc khi có người mua
+    match /market/{id} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.resource.data.uid == request.auth.uid;
+      allow delete: if request.auth != null;
+    }
+
+    // Vàng chờ người bán nhận: người mua ghi vào, chỉ người bán đọc và xóa
+    match /payouts/{uid}/list/{pid} {
+      allow create: if request.auth != null;
+      allow read, delete: if request.auth != null && request.auth.uid == uid;
+    }
   }
 }

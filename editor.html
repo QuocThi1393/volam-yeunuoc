@@ -149,7 +149,7 @@ function defaultData() {
   const D = { meta: { app: "vlyn", kind: "gamedata", version: 2, updated: Date.now() } };
 
   D.settings = {
-    counterBonus: 15, offlineHours: 8, invSize: 40, invMiscSize: 30, skillGemMul: 1, resetRefund: 100, maxLevel: 99, expBase: 100, expPow: 2.2,
+    counterBonus: 15, offlineHours: 24, invSize: 50, invMiscSize: 30, partyHpPer: 25, partyDmgPer: 10, skillGemMul: 1, resetRefund: 100, maxLevel: 99, expBase: 100, expPow: 2.2,
     mobDropChance: 12, maxOverLevel: 5, bikipMaxLv: 3,
     mpRegenFlat: 5, manaShieldRatio: 1, manaShieldCap: 80, reflectCap: 50,
     rules: "Qua boss map mới mở map kế tiếp. Bí kíp chỉ phái đó đọc được, phái khác bán lấy vàng. Đọc trùng bí kíp để lên cấp (tối đa 3). Skill chuột trái của mọi phái đều theo tốc đánh. Skill chuột phải có hồi chiêu cố định.",
@@ -220,7 +220,8 @@ function defaultData() {
     { id: "debuff_area", name: "Debuff vùng lên kẻ địch", done: false, note: "" },
     { id: "passive_skill", name: "Bị động: tăng cường skill khác", done: true, note: "" },
     { id: "passive_stat", name: "Bị động: tăng chỉ số", done: true, note: "" },
-    { id: "other", name: "Khác (mô tả trong ghi chú)", done: false, note: "" }
+    { id: "other", name: "Khác (mô tả trong ghi chú)", done: false, note: "" },
+    ...NEW_MECHS
   ];
 
   D.patterns = [
@@ -393,6 +394,16 @@ const O = {
 };
 const nameOf = (list, id) => { const x = DATA[list].find(v => v.id === id); return x ? (x.name || "(chưa đặt tên)") : ""; };
 const isPassive = it => it.slot === "p1" || it.slot === "p2";
+// bị động có ô "Tăng cường cho skill": thường, lướt tới đánh (Thê Vân Tung), tăng khi chiêu còn trên sân (Mê Tung)
+const isBoostMech = it => ["passive_skill", "dash_strike", "aura_while"].includes(it.mech);
+const FX_TINTS = [{ v: "none", t: "Giữ màu gốc" }, { v: "light", t: "Tô nhẹ theo màu hệ" }, { v: "full", t: "Tô đậm theo màu hệ (hình nét đen)" }];
+// cơ chế mới bản 2.1 (đã có code)
+const NEW_MECHS = [
+  { id: "twin_sword", name: "2 đạn nối tiếp (đạn sau 50% sát thương, luôn làm chậm)", done: true, note: "Lưỡng Nghi Kiếm Pháp. Tỉ lệ hiệu ứng = mức làm chậm %. Hình 1 = đạn đầu, Hình 2 = đạn sau." },
+  { id: "tornado", name: "Lốc xoáy bay ra, càng xa càng to, trúng thì đóng băng và tan", done: true, note: "Tuyết Mãn Thương Sơn. Hình 1 = bàn tay đẩy, Khung 1–4 = lốc nhỏ tới to. Thời gian = thời gian bay." },
+  { id: "dash_strike", name: "Bị động: đánh không tới thì lướt tới địch", done: true, note: "Thê Vân Tung. Chọn skill được tăng cường là chiêu chính xoay quanh người." },
+  { id: "aura_while", name: "Bị động: tăng khi chiêu được tăng cường còn trên sân", done: true, note: "Mê Tung Nhuyễn Ảnh. Lúc chiêu đó hồi chiêu thì hút nội lực 10–50%." }
+];
 
 // ---------------- Định nghĩa các mục ----------------
 // field: { k, l(label), t(type), w(width s/m/l/xl), o(options fn), show(it), rr(re-render card on change), cols(lines) }
@@ -421,7 +432,10 @@ const SECTIONS = [
     help: "Mỗi đường có 5 ô: Chuột trái (skill chính, theo tốc đánh), Chuột phải (skill phụ, hồi chiêu cố định), Bị động 1, Bị động 2, Q (buff/debuff có hồi chiêu và thời gian tác dụng). Cơ chế ghi '(cần code mới)' thì Claude phải viết thêm code. Ô nào không dùng cứ để 0. 'Vũ khí cần cầm': cầm sai loại thì không dùng được skill này; để trống là cầm gì cũng dùng được. 'Sát thương cộng thẳng' không nhân với công nên mạnh lúc đầu game, cuối game thì nhỏ dần.",
     filters: [{ k: "sect", l: "Phái", o: O.sects }, { k: "path", l: "Đường", o: () => [{ v: 1, t: "Đường 1" }, { v: 2, t: "Đường 2" }] }],
     head: it => `${nameOf("sects", it.sect)} · ${O.paths(it).find(p => p.v === it.path).t} · ${SKILL_SLOTS.find(s => s.id === it.slot).name}`,
-    imgs: [{ k: "img", l: "Icon skill" }],
+    imgs: [{ k: "img", l: "Icon skill" },
+      { k: "fxA", l: "Hình 1: đạn / hiệu ứng chính", kind: "fx" }, { k: "fxB", l: "Hình 2: đạn sau / lúc về / lúc gồng", kind: "fx" },
+      { k: "fxF1", l: "Khung 1 (nhỏ)", kind: "fx" }, { k: "fxF2", l: "Khung 2", kind: "fx" }, { k: "fxF3", l: "Khung 3", kind: "fx" }, { k: "fxF4", l: "Khung 4 (to)", kind: "fx" }],
+    imgsWide: true,
     fields: [
       { k: "name", l: "Tên skill", t: "text", w: "l" },
       { k: "mech", l: "Cơ chế", t: "select", o: O.mechs, w: "l", rr: 1, blank: "— chọn —" },
@@ -444,11 +458,14 @@ const SECTIONS = [
       { k: "effect", l: "Gây hiệu ứng", t: "select", o: O.effects, w: "m", show: it => !isPassive(it) },
       { k: "effectChance", l: "Tỉ lệ gây %", t: "num", w: "s", show: it => !isPassive(it) },
       { k: "effectChanceLv", l: "+ mỗi cấp", t: "num", w: "s", show: it => !isPassive(it) },
-      { k: "target", l: "Tăng cường cho skill", t: "select", o: O.sameSkills, w: "l", blank: "— không —", show: it => it.mech === "passive_skill" },
-      { k: "boosts", l: "Tăng cường mỗi cấp", t: "lines", w: "xl", show: it => it.mech === "passive_skill",
+      { k: "target", l: "Tăng cường cho skill", t: "select", o: O.sameSkills, w: "l", blank: "— không —", show: isBoostMech },
+      { k: "boosts", l: "Tăng cường mỗi cấp", t: "lines", w: "xl", show: isBoostMech,
         cols: [{ k: "attr", l: "Thuộc tính", t: "select", o: O.boostAttrs }, { k: "per", l: "Mỗi cấp", t: "num" }] },
       { k: "stats", l: "Chỉ số tăng mỗi cấp (bị động / buff)", t: "lines", w: "xl", show: it => it.mech === "passive_stat" || it.mech === "buff_stat" || it.slot === "q",
         cols: [{ k: "stat", l: "Chỉ số", t: "select", o: O.stats }, { k: "base", l: "Gốc", t: "num" }, { k: "per", l: "Mỗi cấp", t: "num" }] },
+      { k: "fxARot", l: "Góc xoay Hình 1 (độ, để mũi hình chỉ đúng hướng bay)", t: "num", w: "l", show: it => !isPassive(it) },
+      { k: "fxBRot", l: "Góc xoay Hình 2 (độ)", t: "num", w: "m", show: it => !isPassive(it) },
+      { k: "fxTint", l: "Màu hình đạn", t: "select", o: () => FX_TINTS, w: "l", show: it => !isPassive(it) },
       { k: "desc", l: "Mô tả hiện trong game", t: "area", w: "xl" },
       { k: "note", l: "Ghi chú cho Claude (ý tưởng, cách hoạt động)", t: "area", w: "xl" }
     ]
@@ -553,6 +570,7 @@ const SECTIONS = [
       { k: "useIn", l: "Dùng được khi", t: "multi", o: O.useIn, w: "l", show: isUsable },
       { k: "bossTier", l: "Vé cho boss Hoàng Kim loại", t: "select", o: O.goldTiers, w: "m", show: it => it.kind === "ticket" },
       { k: "shop", l: "Bán ở cửa hàng", t: "check", w: "s", rr: 1 }, { k: "price", l: "Giá (vàng)", t: "num", w: "m", show: it => it.shop },
+      { k: "quest", l: "Vật phẩm nhiệm vụ (không rao ở Chợ)", t: "check", w: "l" },
       { k: "sources", l: "Có được từ", t: "multi", o: O.miscSources, w: "l" },
       { k: "dropChance", l: "% rơi từ boss", t: "num", w: "s" }, { k: "dropQty", l: "Số lượng mỗi lần rơi", t: "num", w: "s" },
       { k: "desc", l: "Mô tả trong game", t: "area", w: "xl" },
@@ -681,7 +699,9 @@ const SECTIONS = [
     head: () => "Cài đặt chung",
     fields: [
       { k: "counterBonus", l: "Tương khắc: + % sát thương", t: "num", w: "m" },
-      { k: "offlineHours", l: "Treo máy offline tối đa (giờ)", t: "num", w: "m" },
+      { k: "offlineHours", l: "Treo máy offline tối đa (giờ, lúc tắt web)", t: "num", w: "m" },
+      { k: "partyHpPer", l: "Mỗi người thêm đánh boss: boss + % máu", t: "num", w: "l" },
+      { k: "partyDmgPer", l: "Mỗi người thêm đánh boss: boss + % sát thương", t: "num", w: "l" },
       { k: "invSize", l: "Số ô túi trang bị", t: "num", w: "m" }, { k: "invMiscSize", l: "Số ô túi vật phẩm", t: "num", w: "m" },
       { k: "maxLevel", l: "Cấp tối đa nhân vật", t: "num", w: "m" },
       { k: "skillGemMul", l: "Nâng skill lên cấp n cần (n − 1) × ? viên ngọc nâng skill", t: "num", w: "l" },
@@ -755,6 +775,12 @@ function upgrade(d) {
   const wmap = t => /phi/iu.test(t) ? "phidao" : /đao/iu.test(t) ? "dao" : /kiếm/iu.test(t) ? "kiem" : /côn|bổng/iu.test(t) ? "bong" : /quyền|chỉ|chưởng|tay/iu.test(t) ? "quyen" : "";
   d.sects.forEach(s => ["weapon1", "weapon2"].forEach(k => { if (s[k] && !WEAPON_TYPES.some(w => w.id === s[k])) s[k] = wmap(s[k]); }));
   d.sects.forEach(applySectBase);
+  // Bản 2.1: hình đạn cho skill, cơ chế mới
+  d.skills.forEach(k => {
+    ["fxA", "fxB", "fxF1", "fxF2", "fxF3", "fxF4"].forEach(f => { if (k[f] === undefined) k[f] = ""; });
+    if (k.fxARot === undefined) k.fxARot = 0; if (k.fxBRot === undefined) k.fxBRot = 0; if (!k.fxTint) k.fxTint = "none";
+  });
+  NEW_MECHS.forEach(m => { if (!d.mechanics.some(x => x.id === m.id)) d.mechanics.push({ ...m }); });
   return d;
 }
 
@@ -950,10 +976,38 @@ $("main").addEventListener("drop", e => {
 });
 
 // Cắt/thu nhỏ ảnh: icon 128×128 và hình nhân vật 256×256 (giữ tỉ lệ, nền trong suốt), hình nền 960×540 (cắt cho đầy)
+// Hình đạn: cắt sát phần trong suốt, thu về tối đa 64px, giữ tỉ lệ (vẽ nhẹ trong trận)
+function fxImageUrl(bmp) {
+  const t = document.createElement("canvas"); t.width = bmp.width; t.height = bmp.height;
+  const tc = t.getContext("2d"); tc.drawImage(bmp, 0, 0);
+  const px = tc.getImageData(0, 0, t.width, t.height).data;
+  let x1 = t.width, y1 = t.height, x2 = -1, y2 = -1;
+  for (let y = 0; y < t.height; y++) for (let x = 0; x < t.width; x++) {
+    if (px[(y * t.width + x) * 4 + 3] > 15) { if (x < x1) x1 = x; if (x > x2) x2 = x; if (y < y1) y1 = y; if (y > y2) y2 = y; }
+  }
+  if (x2 < 0) { x1 = 0; y1 = 0; x2 = t.width - 1; y2 = t.height - 1; }
+  const w = x2 - x1 + 1, h = y2 - y1 + 1, s = Math.min(1, 64 / Math.max(w, h));
+  const cv = document.createElement("canvas"); cv.width = Math.max(1, Math.round(w * s)); cv.height = Math.max(1, Math.round(h * s));
+  const c = cv.getContext("2d"); c.imageSmoothingQuality = "high";
+  c.drawImage(t, x1, y1, w, h, 0, 0, cv.width, cv.height);
+  let url = cv.toDataURL("image/webp", 0.9);
+  if (!url.startsWith("data:image/webp")) url = cv.toDataURL("image/png");
+  return url;
+}
+
 async function applyImage(file) {
   const target = activeImg; if (!target) return;
   try {
     const bmp = await createImageBitmap(file);
+    if (target.kind === "fx") {
+      const url = fxImageUrl(bmp), it = findItem(target.id);
+      if (!it) return;
+      it[target.k] = url; changed();
+      const card = document.querySelector(`.card[data-id="${target.id}"]`);
+      if (card) { rerenderCard(card); const el = document.querySelector(`.card[data-id="${target.id}"] [data-img="${target.k}"]`); if (el) selectImg(el); }
+      toast(`Đã dán hình đạn (${Math.round(url.length / 1024)} KB)`);
+      return;
+    }
     const icon = target.kind !== "bg";
     const W = target.kind === "sprite" ? 256 : icon ? 128 : 960, H = target.kind === "sprite" ? 256 : icon ? 128 : 540;
     const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
