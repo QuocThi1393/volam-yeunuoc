@@ -7,10 +7,22 @@ service cloud.firestore {
       return request.auth != null && request.auth.token.email in ['qthi@vlyn.game'];
     }
 
+    // Mỗi tài khoản 3 ô nhân vật (bản 2.3): ô 1 = mã tài khoản, ô 2–3 = mã tài khoản + "_2", "_3"
+    function ownChar(cid) {
+      return request.auth != null && (cid == request.auth.uid || cid == request.auth.uid + '_2' || cid == request.auth.uid + '_3');
+    }
+
     // Mỗi người chỉ đọc/ghi nhân vật của mình. Admin được xem tất cả.
-    match /players/{uid} {
-      allow read: if request.auth != null && (request.auth.uid == uid || isAdmin());
-      allow write: if request.auth != null && request.auth.uid == uid;
+    match /players/{cid} {
+      allow read: if ownChar(cid) || isAdmin();
+      allow write: if ownChar(cid);
+    }
+
+    // Tên nhân vật không trùng: ai cũng xem được, chỉ giữ tên cho nhân vật của mình, chỉ chủ tên được bỏ
+    match /names/{key} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.resource.data.uid == request.auth.uid && ownChar(request.resource.data.cid);
+      allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
     }
 
     // Chợ: ai đăng nhập cũng xem được; chỉ rao hàng đứng tên mình; xóa khi rút về hoặc khi có người mua

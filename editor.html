@@ -122,7 +122,8 @@ const GOLD_TIERS = [{ id: "ha", name: "Hạ" }, { id: "trung", name: "Trung" }, 
 const DROP_SOURCES = [{ id: "mob", name: "Quái thường" }, { id: "boss", name: "Boss map" }, { id: "gold", name: "Boss Hoàng Kim" }];
 const WEAPON_TYPES = [{ id: "dao", name: "Đao" }, { id: "kiem", name: "Kiếm" }, { id: "bong", name: "Bổng (Côn)" }, { id: "quyen", name: "Quyền (bao tay, chỉ)" }, { id: "phidao", name: "Phi Đao" }];
 const MISC_KINDS = [{ id: "hp", name: "Hồi máu" }, { id: "mp", name: "Hồi nội lực" }, { id: "cure", name: "Giải hiệu ứng xấu" }, { id: "revive", name: "Hồi sinh" },
-  { id: "ticket", name: "Vé boss Hoàng Kim" }, { id: "skillup", name: "Nâng cấp skill" }, { id: "reset", name: "Reset skill" }, { id: "other", name: "Khác" }];
+  { id: "ticket", name: "Vé boss Hoàng Kim" }, { id: "skillup", name: "Nâng cấp skill" }, { id: "reset", name: "Reset skill" },
+  { id: "levelup", name: "Lên cấp ngay (Tuyết Liên)" }, { id: "newbie", name: "Lễ bao tân thủ" }, { id: "other", name: "Khác" }];
 const MISC_SOURCES = [{ id: "shop", name: "Cửa hàng" }, { id: "boss", name: "Boss map" }, { id: "gold", name: "Boss Hoàng Kim" }];
 const USE_IN = [{ id: "boss", name: "Đánh boss" }, { id: "pk", name: "PK" }, { id: "idle", name: "Treo máy" }];
 const isUsable = it => ["hp", "mp", "cure", "revive"].includes(it.kind);
@@ -149,8 +150,12 @@ function defaultData() {
   const D = { meta: { app: "vlyn", kind: "gamedata", version: 2, updated: Date.now() } };
 
   D.settings = {
-    counterBonus: 15, offlineHours: 24, invSize: 50, invMiscSize: 30, partyHpPer: 25, partyDmgPer: 10, skillGemMul: 1, skillExtraTiers: 3, skillExtraPoints: 2, skillExtraGemMul: 2, roomDummyHp: 2000000, netRate: 10, resetRefund: 100, maxLevel: 99, expBase: 100, expPow: 2.2,
-    mobDropChance: 12, maxOverLevel: 5, bikipMaxLv: 3,
+    counterBonus: 15, offlineHours: 24, invSize: 50, invMiscSize: 30, partyHpPer: 25, partyDmgPer: 10, skillGemMul: 1, skillExtraTiers: 3, skillExtraPoints: 2, skillExtraGemMul: 2, roomDummyHp: 2000000, netRate: 10,
+    mobGoldMul: 50, mobGoldChance: 70, overLevelExpPer: 5, overLevelExpMax: 150, lotusGoldChance: 28,
+    newbieGems: 10, newbieHp: 10, newbieMp: 10, newbieWeaponLv: 10, newbieWeaponRar: 3,
+    staminaMax: 100, staminaRegen: 3, dashStamina: 20, dashCd: 1.2,
+    bossDmgMul: 2, bossBulletMul: 2, bossGapMul: 0.8, rageHpPct: 50, rageGapMul: 0.5, rageExtraPatterns: 2, resetRefund: 100, maxLevel: 99, expBase: 100, expPow: 2.2,
+    mobDropChance: 12, maxOverLevel: 0, bikipMaxLv: 3,
     mpRegenFlat: 5, manaShieldRatio: 1, manaShieldCap: 80, reflectCap: 50,
     rules: "Qua boss map mới mở map kế tiếp. Bí kíp chỉ phái đó đọc được, phái khác bán lấy vàng. Đọc trùng bí kíp để lên cấp (tối đa 3). Skill chuột trái của mọi phái đều theo tốc đánh. Skill chuột phải có hồi chiêu cố định.",
     note: ""
@@ -570,6 +575,9 @@ const SECTIONS = [
       { k: "pkLimit", l: "Tối đa mỗi trận PK (0 = không giới hạn)", t: "num", w: "m", show: isUsable },
       { k: "useIn", l: "Dùng được khi", t: "multi", o: O.useIn, w: "l", show: isUsable },
       { k: "bossTier", l: "Vé cho boss Hoàng Kim loại", t: "select", o: O.goldTiers, w: "m", show: it => it.kind === "ticket" },
+      { k: "bossTier", l: "Loại (boss Hoàng Kim cùng loại rơi kèm)", t: "select", o: O.goldTiers, w: "m", show: it => it.kind === "levelup" },
+      { k: "useBelow", l: "Dùng được khi dưới cấp", t: "num", w: "m", show: it => it.kind === "levelup" },
+      { k: "useLimit", l: "Mỗi nhân vật dùng tối đa", t: "num", w: "m", show: it => it.kind === "levelup" },
       { k: "shop", l: "Bán ở cửa hàng", t: "check", w: "s", rr: 1 }, { k: "price", l: "Giá (vàng)", t: "num", w: "m", show: it => it.shop },
       { k: "quest", l: "Vật phẩm nhiệm vụ (không rao ở Chợ)", t: "check", w: "l" },
       { k: "sources", l: "Có được từ", t: "multi", o: O.miscSources, w: "l" },
@@ -605,12 +613,13 @@ const SECTIONS = [
   },
 
   { group: "Thế giới", key: "maps", title: "Bãi luyện (map)", noAdd: true,
-    help: "9 map. Hạ boss map mới mở map kế tiếp. Hình nền nên dùng ảnh ngang.",
+    help: "9 map. Hạ boss map mới mở map kế tiếp. Hình nền nên dùng ảnh ngang. Bản 2.3: 3 ô % máu / sát thương / kinh nghiệm của quái treo máy trong map (nhân với hệ số riêng của từng loại quái). Claude đã chỉnh sẵn để nhân vật đồ Hiếm đúng cấp hạ 1 con khoảng 3–4 lượt, mất khoảng 18% máu mỗi con, cấp 30 → 40 khoảng 3 giờ treo.",
     head: it => `Map ${it.order} · Lv ${it.lvFrom}–${it.lvTo}`,
     imgs: [{ k: "img", l: "Icon map" }, { k: "bg", l: "Hình nền", kind: "bg" }],
     fields: [
       { k: "name", l: "Tên map", t: "text", w: "l" }, { k: "element", l: "Ngũ hành", t: "select", o: O.elements, w: "m" },
       { k: "lvFrom", l: "Cấp từ", t: "num", w: "s", rr: 1 }, { k: "lvTo", l: "đến", t: "num", w: "s", rr: 1 },
+      { k: "mobHp", l: "Máu quái (%)", t: "num", w: "s" }, { k: "mobAtk", l: "Sát thương quái (%)", t: "num", w: "s" }, { k: "mobExp", l: "Kinh nghiệm quái (%)", t: "num", w: "s" },
       { k: "desc", l: "Mô tả", t: "area", w: "xl" }, { k: "note", l: "Ghi chú cho Claude", t: "area", w: "xl" }
     ]
   },
@@ -710,6 +719,26 @@ const SECTIONS = [
       { k: "skillExtraPoints", l: "Mỗi tầng thêm tốn ? điểm skill", t: "num", w: "m" },
       { k: "skillExtraGemMul", l: "Mỗi tầng thêm: ngọc nhân ? lần", t: "num", w: "m" },
       { k: "roomDummyHp", l: "Phòng thử: máu mộc nhân", t: "num", w: "m" },
+      { k: "mobGoldMul", l: "Vàng mỗi con quái (% so với công thức gốc)", t: "num", w: "m" },
+      { k: "mobGoldChance", l: "% quái có rơi vàng", t: "num", w: "m" },
+      { k: "overLevelExpPer", l: "Quái cao hơn mình mỗi cấp: thêm ?% kinh nghiệm", t: "num", w: "m" },
+      { k: "overLevelExpMax", l: "Thưởng vượt cấp tối đa (%)", t: "num", w: "m" },
+      { k: "lotusGoldChance", l: "% boss Hoàng Kim rơi kèm Thiên Sơn Tuyết Liên", t: "num", w: "m" },
+      { k: "newbieGems", l: "Lễ bao tân thủ: số Ngộ Đạo Ngọc", t: "num", w: "m" },
+      { k: "newbieHp", l: "Lễ bao tân thủ: số thuốc máu", t: "num", w: "m" },
+      { k: "newbieMp", l: "Lễ bao tân thủ: số thuốc nội lực", t: "num", w: "m" },
+      { k: "newbieWeaponLv", l: "Lễ bao tân thủ: cấp vũ khí", t: "num", w: "m" },
+      { k: "newbieWeaponRar", l: "Lễ bao tân thủ: độ hiếm vũ khí (0 Thường … 3 Huyền thoại)", t: "num", w: "m" },
+      { k: "staminaMax", l: "Thể lực tối đa", t: "num", w: "m" },
+      { k: "staminaRegen", l: "Hồi thể lực mỗi giây", t: "num", w: "m" },
+      { k: "dashStamina", l: "Khinh công tốn ? thể lực", t: "num", w: "m" },
+      { k: "dashCd", l: "Khinh công hồi chiêu (giây)", t: "num", w: "m" },
+      { k: "bossDmgMul", l: "Boss: nhân sát thương", t: "num", w: "m" },
+      { k: "bossBulletMul", l: "Boss: nhân tốc độ đạn", t: "num", w: "m" },
+      { k: "bossGapMul", l: "Boss: nhân giãn cách ra chiêu (gốc 2,3 giây)", t: "num", w: "m" },
+      { k: "rageHpPct", l: "Boss nổi giận khi dưới ?% máu", t: "num", w: "m" },
+      { k: "rageGapMul", l: "Nổi giận: nhân giãn cách ra chiêu", t: "num", w: "m" },
+      { k: "rageExtraPatterns", l: "Nổi giận: thêm ? chiêu", t: "num", w: "m" },
       { k: "netRate", l: "Chơi chung: gửi vị trí tối đa ? lần/giây", t: "num", w: "m" },
       { k: "resetRefund", l: "Reset skill hoàn lại % ngọc nâng skill đã dùng", t: "num", w: "l" },
       { k: "expBase", l: "EXP cấp: hệ số", t: "num", w: "m" }, { k: "expPow", l: "EXP cấp: lũy thừa", t: "num", w: "m" },

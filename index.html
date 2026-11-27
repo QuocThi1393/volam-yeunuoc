@@ -17,10 +17,20 @@
     <div class="logo">Võ Lâm Yêu Nước</div>
     <label>Tên đăng nhập<input id="login-user" autocomplete="username" required></label>
     <label>Mật khẩu<input id="login-pass" type="password" autocomplete="current-password"></label>
+    <label class="chk"><input type="checkbox" id="login-remember" checked> Ghi nhớ đăng nhập <span class="muted small">(bỏ tick: tắt trình duyệt là phải đăng nhập lại)</span></label>
     <div class="bad" id="login-err"></div>
     <button class="btn" id="login-btn" type="submit">Đăng nhập</button>
     <div class="muted small" id="login-note">Tài khoản do admin cấp.</div>
   </form>
+</section>
+
+<section id="scr-chars" class="screen center hidden">
+  <div class="box chars-box">
+    <div class="logo">Chọn nhân vật</div>
+    <div class="chars-head"><span class="muted">Tài khoản <b id="chars-user"></b></span><button type="button" class="btn ghost small-btn" id="chars-logout">Đăng xuất</button></div>
+    <div class="chars" id="chars-list"></div>
+    <div class="muted small" style="margin-top:12px">Cả 3 nhân vật cùng treo máy: nhân vật không vào được tính tối đa 24 giờ. Tên nhân vật không được trùng trong toàn game.</div>
+  </div>
 </section>
 
 <section id="scr-create" class="screen center hidden">
@@ -37,7 +47,8 @@
     <div class="bad" id="create-err"></div>
     <button class="btn" type="submit">Nhập giang hồ</button>
     <div class="muted small" style="text-align:center;margin-top:12px">Đang đăng nhập tài khoản <b id="create-user"></b>
-      <button type="button" class="btn ghost small-btn" id="create-logout" style="margin-left:8px">Đăng xuất</button></div>
+      <button type="button" class="btn ghost small-btn" id="create-back" style="margin-left:8px">Quay lại chọn nhân vật</button>
+      <button type="button" class="btn ghost small-btn" id="create-logout" style="margin-left:4px">Đăng xuất</button></div>
   </form>
 </section>
 
@@ -57,9 +68,7 @@
       <button data-tab="market">Chợ</button>
       <button data-tab="party">Tổ đội</button>
       <button data-tab="admin" id="tab-btn-admin" class="hidden">Admin</button>
-      <button id="btn-ctrl">Điều khiển</button>
-      <button id="btn-pass">Đổi mật khẩu</button>
-      <button id="btn-logout">Đăng xuất</button>
+      <button data-tab="opt">Tùy chỉnh</button>
     </nav>
   </header>
 
@@ -96,6 +105,7 @@
   <div id="tab-shop" class="tab hidden"></div>
   <div id="tab-market" class="tab hidden"></div>
   <div id="tab-party" class="tab hidden"></div>
+  <div id="tab-opt" class="tab hidden"></div>
   <div id="tab-admin" class="tab hidden"></div>
 </section>
 

@@ -1,4 +1,4 @@
-# Võ Lâm Yêu Nước — Hướng dẫn cài đặt (bản 2.2)
+# Võ Lâm Yêu Nước — Hướng dẫn cài đặt (bản 2.3)
 
 ## 1. Đưa game lên GitHub Pages
 1. Tạo repo mới, ví dụ `volam-yeunuoc`.
@@ -30,7 +30,7 @@ Menu bên trái của Firebase Console (bản mới): **Authentication** nằm t
 2. **Security → Authentication** → Get started → tab *Sign-in method* → bật **Email/Password** (chỉ bật dòng đầu) → Save.
 3. **Authentication → Settings → User actions**: nếu project của anh có mục này, bỏ chọn **Enable create (sign-up)** để người lạ không tự tạo được tài khoản.
 4. **Databases & Storage → Firestore** → Create database → nếu hỏi phiên bản thì chọn **Standard** → vùng `asia-southeast1` (Singapore) → **Production mode** → Create.
-5. Firestore → tab **Rules** → xóa hết, dán nội dung file `firestore.rules` → **Publish**. Bản 2.1 có thêm luật cho **Chợ** (`market`, `payouts`), nhớ dán bản mới.
+5. Firestore → tab **Rules** → xóa hết, dán nội dung file `firestore.rules` → **Publish**. Bản 2.1 có thêm luật cho **Chợ** (`market`, `payouts`); bản 2.3 thêm luật **3 nhân vật** và **tên nhân vật** (`names`). Mỗi lần nâng bản có đổi file này thì nhớ dán lại.
 6. **Project settings** (bánh răng) → *Your apps* → bấm biểu tượng **</>** (Web) → đặt tên → Register. Firebase hiện đoạn `firebaseConfig = {...}`.
 7. Mở `js/config.js`, thay các dòng `DIEN_VAO_DAY` bằng giá trị trong đoạn đó, rồi upload lại file này lên GitHub. Dòng `databaseURL` xem mục 7 (chơi chung).
 8. **Authentication → Settings → Authorized domains** → Add domain → `quocthi1393.github.io`.
@@ -40,7 +40,8 @@ Menu bên trái của Firebase Console (bản mới): **Authentication** nằm t
   - Email: `tendangnhap@vlyn.game` (ví dụ `qthi@vlyn.game`). Domain này không cần tồn tại thật.
   - Mật khẩu: từ 6 ký tự.
 - Người chơi đăng nhập bằng **tên đăng nhập** (`qthi`), không cần gõ `@vlyn.game`.
-- Người chơi tự đổi mật khẩu trong game bằng nút **Đổi mật khẩu**.
+- Người chơi tự đổi mật khẩu trong game ở tab **Tùy chỉnh** → **Đổi mật khẩu**.
+- Màn đăng nhập có ô **Ghi nhớ đăng nhập**: bỏ tick thì tắt trình duyệt là phải đăng nhập lại (dùng khi đăng nhập trên máy người khác).
 
 ## 4. Admin
 - `js/config.js` → `ADMIN_USERNAMES = ["qthi"]`
@@ -48,7 +49,7 @@ Menu bên trái của Firebase Console (bản mới): **Authentication** nằm t
 - Hai chỗ phải khớp nhau. Muốn thêm admin thì thêm vào cả hai chỗ, sau đó Publish lại rules.
 
 ## 5. Điều khiển khi đánh boss
-Có 2 kiểu, đổi ở nút **Điều khiển** trên thanh trên cùng, hoặc trong trận bấm Esc rồi C.
+Có 2 kiểu, đổi ở tab **Tùy chỉnh**, hoặc trong trận bấm Esc rồi C.
 
 | Việc | Kiểu A (WASD) | Kiểu B (chuột để đi) |
 |---|---|---|
@@ -57,13 +58,15 @@ Có 2 kiểu, đổi ở nút **Điều khiển** trên thanh trên cùng, hoặ
 | Chiêu phụ | Chuột phải | W |
 | Buff / debuff | Q | E |
 | Để dành | — | R (chiêu sau này) |
-| Lướt né | Space | Space (lướt về phía chuột) |
+| Khinh công (tốn thể lực) | Space | Space (lướt về phía chuột) |
 | Thuốc | 1 / 2 / 3 | 1 / 2 / 3 |
 | Tạm dừng | Esc (F bỏ chạy, C đổi điều khiển, G đồ họa, P hiện FPS) | như kiểu A |
 
 - Sân đánh rộng hơn màn hình, camera chạy theo nhân vật. Boss ra ngoài khung thì có mũi tên chỉ hướng.
-- Máy yếu: nút Điều khiển → Đồ họa **Thấp** (bỏ hình nền và hiệu ứng phụ), bật **Hiện FPS** để xem số khung hình mỗi giây.
+- Máy yếu: tab Tùy chỉnh → Đồ họa **Thấp** (bỏ hình nền và hiệu ứng phụ), bật **Hiện FPS** để xem số khung hình mỗi giây.
 - Vạn Kiếm Quy Tông: bấm chiêu phụ lần nữa để gọi kiếm về sớm.
+- **Khinh công** (bản 2.3): thanh thể lực màu vàng nhạt dưới thanh nội lực, tối đa 100, hồi 3/giây, mỗi lần tốn 20, hồi chiêu 1,2 giây, bất tử 0,28 giây. Thiếu thể lực thì ô Khinh công hiện "Thiếu thể lực".
+- **Boss map và boss Hoàng Kim** (bản 2.3): sát thương ×2, đạn bay nhanh ×2, ra chiêu dày hơn (giãn cách ×0,8). Dưới 50% máu boss **nổi giận**: vòng đỏ quanh boss, chữ "NỔI GIẬN!", ra chiêu dồn dập (×0,5) và thêm 2 chiêu. Mộc nhân ở phòng Tổ đội không đổi.
 
 - Cầm sai vũ khí thì chiêu hiện chữ đỏ "Cần …" và không dùng được.
 - Vé boss Hoàng Kim bị trừ ngay khi vào trận, kể cả khi thua hoặc bỏ chạy.
@@ -72,7 +75,8 @@ Có 2 kiểu, đổi ở nút **Điều khiển** trên thanh trên cùng, hoặ
 Chấm đỏ giữa người là điểm trúng đạn.
 
 ## 6. Chợ
-- Rao bán: Túi đồ → bấm món muốn bán → **Rao bán ở Chợ** → đặt giá. Mỗi người tối đa 10 món, không thu thuế, không giới hạn thời gian.
+- Rao bán: Túi đồ → bấm món muốn bán → **Rao bán ở Chợ** → đặt giá. Mỗi **nhân vật** tối đa 10 món, không thu thuế, không giới hạn thời gian. Vàng bán được về đúng nhân vật đã rao.
+- Mỗi món hiện luôn chỉ số chính, dòng phụ và so sánh với đồ đang mặc (xanh tăng, đỏ giảm). Lọc theo ô trang bị ở hàng nút trên cùng.
 - Món đang rao rời khỏi túi. Rút về ở tab Chợ khi túi còn chỗ. Đồ đã khóa phải mở khóa mới rao được.
 - Người bán đang offline vẫn nhận vàng ở lần vào game sau.
 - Chế độ thử: chỉ thấy hàng giữa các tài khoản trên cùng một trình duyệt. Muốn bạn bè thấy hàng của nhau thì phải bật Firebase thật (mục 2).
@@ -107,3 +111,30 @@ Lần đầu đăng nhập Firebase mà tài khoản chưa có nhân vật, màn
 - Số tầng, số điểm, hệ số ngọc sửa trong editor → Cài đặt chung.
 - Tab kỹ năng: 2 tab đường (tên phái + vũ khí, sửa được trong editor → Môn phái → "Tên tab kỹ năng"), tab Bí kíp và Bí kíp giang hồ.
 
+## 9. Bản 2.3: 3 nhân vật, treo máy mới, vật phẩm mới
+### Nhân vật
+- Mỗi tài khoản có **3 ô nhân vật**. Đăng nhập xong luôn vào màn **Chọn nhân vật** (hình đại diện là hình môn phái).
+- Nhân vật đang có từ bản 2.2 nằm ở ô 1, không phải làm gì.
+- Tên nhân vật không được trùng trong toàn game (không phân biệt hoa thường).
+- **Xóa nhân vật**: Firebase phải nhập mật khẩu tài khoản; chế độ thử thì gõ lại đúng tên nhân vật. Xóa là mất luôn hàng đang rao trên Chợ và vàng bán hàng chưa nhận của nhân vật đó; tên được nhả ra cho người khác dùng.
+- Cả 3 nhân vật cùng tính treo máy khi vắng mặt (tối đa 24 giờ mỗi nhân vật).
+- Tab **Tùy chỉnh** gom: Chọn nhân vật, Điều khiển & đồ họa, Đổi mật khẩu, Đăng xuất.
+
+### Treo máy
+- Mỗi map có 3 hệ số riêng: **Máu quái (%)**, **Sát thương quái (%)**, **Kinh nghiệm quái (%)** (editor → Bãi luyện). Đồ Hiếm đúng cấp hạ 1 con khoảng 3–4 lượt, mất khoảng 18–25% máu mỗi con; đồ yếu sẽ chết nhiều (chết nghỉ 8 giây).
+- Map cao cho kinh nghiệm nhiều hơn hẳn: lên map cao train chết lên chết xuống vẫn lên cấp nhanh hơn ở map thấp.
+- Quái cao hơn mình mỗi cấp thêm 5% kinh nghiệm, tối đa +150% (editor → Cài đặt chung).
+- Treo offline tính cùng công thức với online (đã tính cả số lần chết).
+- Vàng: 70% quái có rơi vàng, mỗi lần rơi bằng 50% công thức gốc.
+- Thời gian treo ước tính với đồ Hiếm đúng cấp: cấp 30 → 40 khoảng 3 giờ, cấp 1 → 89 khoảng 36 giờ.
+
+### Trang bị
+- Không mặc được đồ cao hơn cấp nhân vật (editor → Cài đặt chung → "Mặc đồ cao hơn cấp mình tối đa" = 0).
+- Boss map có 1% rơi đồ Hoàng Kim (theo trọng số Hoàng Kim ở cột boss trong editor → Độ hiếm & tỉ lệ rơi).
+
+### Vật phẩm mới
+- **Lễ bao tân thủ**: nhân vật mới (và mỗi nhân vật cũ 1 lần) có trong túi Vật phẩm. Bấm **Mở lễ bao**: nhận 10 Ngộ Đạo Ngọc, 10 Kim Sang Dược, 10 Ngưng Thần Tán và chọn 1 vũ khí Huyền thoại cấp 10 theo 1 trong 2 đường của phái (dòng phụ ngẫu nhiên).
+- **Thiên Sơn Tuyết Liên (Hạ / Trung / Thượng)**: dùng lên ngay 1 cấp, giữ % kinh nghiệm, thêm 1 điểm skill. Hạ dùng khi dưới cấp 50, Trung dưới 70, Thượng dưới 100. Mỗi loại tối đa 3 bông mỗi nhân vật.
+  - Boss map rơi 5% (boss dưới cấp 50 rơi Hạ, 50–69 Trung, từ 70 Thượng). Boss Hoàng Kim 28% rơi kèm theo bậc boss.
+  - Không bán cho cửa hàng, rao bán ở Chợ được.
+- Các con số trên đều sửa được trong editor (Cài đặt chung và Vật phẩm & cửa hàng).
