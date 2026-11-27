@@ -396,7 +396,8 @@ export function skillCalc(p, id, st, bonus) {
     flat: (sk.flatDmg || 0) + (sk.flatDmgLv || 0) * L,
     aspd: sk.aspd * (1 + (bst.aspd + aspdStat) / 100),
     cd: sk.cd ? Math.max(0.5, (sk.cd - sk.cdLv * L) * (1 + bst.cd / 100) * (1 - cdr / 100)) : 0,
-    mp: Math.max(0, Math.round(sk.mp * (1 + bst.mp / 100))),
+    mp: (sk.slot === "rmb" || sk.slot === "q")      // bản 2.4: chiêu chính miễn phí; chiêu phụ, Q = gốc + cấp nhân vật × hệ số của phái
+      ? Math.max(0, Math.round((sk.mp + (p.level || 1) * ((X.sect[sk.sect] || {}).mpPerLv || 0)) * (1 + bst.mp / 100))) : 0,
     dur: (sk.dur + sk.durLv * L) * (1 + bst.dur / 100),
     size: (sk.size + sk.sizeLv * L) * (1 + bst.size / 100),
     count: Math.max(1, Math.floor(sk.count + sk.countLv * L + bst.count + 1e-9)),
@@ -588,7 +589,9 @@ export function idleRound(p, state, now) {
     if (Math.random() * 100 < (S.mobDropChance ?? 12)) {
       const it = genItem(mon.lv, "mob");
       if (it) {
-        const r = addItem(p, it);
+        const blue = p.autoSellBlue && it.r === 1 && !it.gold;     // bản 2.4: treo máy không nhặt đồ xanh → tự bán
+        const r = blue ? { kept: false, gold: sellPrice(it) } : addItem(p, it);
+        if (blue) p.gold += r.gold;
         const rn = rarityOf(it.r).name;
         logs.push(r.kept ? { t: `Nhặt được [${rn}] ${it.name} Lv${it.lv}`, c: "r" + it.r }
           : { t: `Tự bán [${rn}] ${it.name} +${fmt(r.gold)} vàng`, c: "dim" });
@@ -659,7 +662,7 @@ export function offlineGains(p, seconds, noCap = false) {
   const drops = Math.min(300, Math.round(kills * (S.mobDropChance ?? 12) / 100));
   for (let i = 0; i < drops; i++) {
     const it = genItem(lv, "mob"); if (!it) continue;
-    const keep = it.r >= 1 && p.bag.length < (S.invSize || 50);
+    const keep = it.r >= 1 && !(p.autoSellBlue && it.r === 1) && p.bag.length < (S.invSize || 50);
     if (keep) { p.bag.push(it); res.kept.push(it); }
     else { const g = sellPrice(it); p.gold += g; res.sold++; res.soldGold += g; }
   }
@@ -702,17 +705,13 @@ export function bossRewards(p, kind, b) {
   res.levels = gainExp(p, res.exp);
   const source = kind === "gold" ? "gold" : "boss";
   const n = (b.drops || 2) + (Math.random() * 100 < (b.dropExtra || 0) ? 1 : 0);
-  // boss map: mỗi món có tỉ lệ thành đồ Hoàng Kim theo trọng số "Hoàng Kim" ở mục Độ hiếm (bản 2.3)
-  const gr = X.rarity[X.goldRar] || {}, wsum = X.rarity.reduce((a, r) => a + Math.max(0, r.wBoss || 0), 0);
-  const goldPct = kind === "map" && wsum > 0 ? Math.max(0, gr.wBoss || 0) / wsum : 0;
+  // boss map (bản 2.4): mỗi trận có tỉ lệ rơi thêm 1 món Hoàng Kim (Cài đặt chung, mặc định 2%); đồ Hoàng Kim luôn vào túi kể cả khi túi đầy
   const goldList = (GD.goldItems || []).filter(g => g.lv <= Math.max(50, lv));
+  if (kind === "map" && goldList.length && Math.random() * 100 < (S.mapBossGoldChance ?? 2)) {
+    const it = makeGoldItem(pick(goldList)); p.bag.push(it);
+    res.gold_items.push({ it, kept: true });
+  }
   for (let i = 0; i < n; i++) {
-    if (goldPct && goldList.length && Math.random() < goldPct) {
-      const it = makeGoldItem(pick(goldList)), full = p.bag.length >= (S.invSize || 50);
-      if (!full) p.bag.push(it); else p.gold += sellPrice(it);
-      res.gold_items.push({ it, kept: !full });
-      continue;
-    }
     const it = genItem(lv, source); if (!it) continue;
     const r = addItem(p, it);
     res.items.push({ it, kept: r.kept, gold: r.gold });
@@ -739,9 +738,8 @@ export function bossRewards(p, kind, b) {
       const list = (GD.goldItems || []).filter(g => (g.dropTiers || []).includes(b.tier));
       if (list.length) {
         const it = makeGoldItem(pick(list));
-        const full = p.bag.length >= (S.invSize || 50);
-        if (!full) p.bag.push(it); else p.gold += sellPrice(it);
-        res.gold_items.push({ it, kept: !full });
+        p.bag.push(it);                     // bản 2.4: đồ Hoàng Kim không bao giờ bị tự bán, túi đầy vẫn cho vào
+        res.gold_items.push({ it, kept: true });
       }
     }
   }

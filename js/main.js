@@ -493,7 +493,7 @@ function renderBag() {
   bindEquipPanel(renderBag);
   const items = [...P.bag].sort((a, b) => b.r - a.r || X.slotOrder.indexOf(a.slot) - X.slotOrder.indexOf(b.slot) || b.lv - a.lv);
   const cells = [];
-  for (let i = 0; i < INV(); i++) {
+  for (let i = 0; i < Math.max(INV(), items.length); i++) {      // bản 2.4: đồ Hoàng Kim có thể làm túi vượt 50 ô, vẫn hiện đủ
     const it = items[i];
     if (!it) { cells.push(`<div class="cell">${emptyBox(48)}</div>`); continue; }
     const better = L.itemScore(it) > L.itemScore(P.equip[it.slot]);
@@ -526,6 +526,7 @@ function renderBag() {
   $("misc-grid").innerHTML = mcells.join("");
   $("bag-m-title").textContent = `Vật phẩm ${used}/${cap}`;
   $("bag-auto").checked = !!P.autoSellCommon;
+  $("bag-auto1").checked = !!P.autoSellBlue;
   // tab Trang bị | Vật phẩm
   const eqTab = bagTab === "eq";
   $("bag-e-title").classList.toggle("on", eqTab); $("bag-m-title").classList.toggle("on", !eqTab);
@@ -672,6 +673,7 @@ function bindLock(it) {
   $("d-lock").onclick = () => { const on = L.toggleLock(P, it.id); toast(on ? `Đã khóa ${it.name}: không bán được, bán nhanh sẽ bỏ qua.` : `Đã mở khóa ${it.name}.`); markDirty(); renderBag(); };
 }
 $("bag-auto").onchange = e => { P.autoSellCommon = e.target.checked; markDirty(); };
+$("bag-auto1").onchange = e => { P.autoSellBlue = e.target.checked; markDirty(); };     // bản 2.4: treo máy không nhặt đồ xanh
 document.querySelectorAll("[data-bt]").forEach(b => b.onclick = () => {
   if (bagTab === b.dataset.bt) return;
   bagTab = b.dataset.bt;
@@ -689,11 +691,12 @@ function skillNumbers(sc) {
   }
   if (sc.dmg) out.push(`Sát thương ${fmt(sc.dmg)}% công${sc.flat ? ` + ${fmt(sc.flat)}` : ""}`);
   if (s.slot === "lmb" && sc.aspd) out.push(`${L.fmt1(sc.aspd)} đòn/giây`);
+  if (s.slot === "lmb") out.push(s.mech === "orbit" ? `${Math.max(1, Math.round(sc.count || 1)) + Math.floor(sc.lv / 4)} tay quyền · tự đánh, không tốn nội lực` : "Tự đánh, không tốn nội lực");   // bản 2.4
   if (sc.cd) out.push(`Hồi chiêu ${L.fmt1(sc.cd)} giây`);
   if (sc.mp) out.push(`Nội lực ${sc.mp}`);
   if (sc.dur) out.push(`Thời gian ${L.fmt1(sc.dur)} giây`);
   if (sc.size && s.mech !== "crescent") out.push(`Vùng ${fmt(sc.size)}`);
-  if (sc.count > 1) out.push(`Số lượng ${sc.count}`);
+  if (sc.count > 1 && s.mech !== "orbit") out.push(`Số lượng ${sc.count}`);
   sc.stats.forEach(x => out.push(`${statName(x.stat)} +${statVal(x.stat, x.v)}`));
   return out.join(" · ");
 }
@@ -868,18 +871,19 @@ function bossIntro(kind, b) {
   const path = L.activePath(P), set = (X.skillOf[P.sect] || {})[path] || {};
   const keyLine = (k, slot) => { const s = set[slot]; return s ? `<div><b>${k}</b> ${esc(s.name)}${!P.skills[s.id] ? ' <span class="bad">(chưa học)</span>' : !L.weaponOk(P, s) ? ` <span class="bad">(cần ${WEAPON_NAMES[s.weapon]})</span>` : ""}</div>` : ""; };
   const hk = k => { const m = X.misc[P.hot[k]]; return m ? `<div><b>${k}</b> ${esc(m.name)} ×${P.misc[m.id] || 0}</div>` : ""; };
+  const tvt = k => set.lmb && set.lmb.mech === "orbit" && set.p1 && set.p1.mech === "dash_strike" && P.skills[set.p1.id] ? `<div><b>${k}</b> ${esc(set.p1.name)}: lướt tới địch gần con trỏ (hồi 3 giây)</div>` : "";   // bản 2.4
   const reward = kind === "gold"
     ? `Rơi ${b.drops} món · bí kíp ${b.bikipChance}% (tối đa ${BIKIP_TIER_NAMES[{ ha: "ha", trung: "trung", thuong: "cao" }[b.bikipMax] || "ha"]}) · đồ Hoàng Kim ${b.goldItemChance ?? 10}%`
-    : `Rơi ${b.drops} món (+${b.dropExtra}% thêm 1 món) · bí kíp ${BIKIP_TIER_NAMES[b.bikipTier] || ""} ${b.bikipChance}%${!P.beaten[b.id] ? " · hạ lần đầu mở map kế" : ""}`;
+    : `Rơi ${b.drops} món (+${b.dropExtra}% thêm 1 món) · bí kíp ${BIKIP_TIER_NAMES[b.bikipTier] || ""} ${b.bikipChance}% · đồ Hoàng Kim ${S.mapBossGoldChance ?? 2}%${!P.beaten[b.id] ? " · hạ lần đầu mở map kế" : ""}`;
   modal(`<div class="det-head">${b.img ? `<img src="${b.img}" class="boss-big" alt="">` : ""}<div><h3 style="color:${col};margin:0">${esc(b.name)} · Lv${b.lv} (${elemName(b.element)})</h3>
     <div class="muted small">${esc(b.note || "")}</div></div></div>
     <p class="small">Máu <b>${fmt(b.hp)}</b> · Công <b>${fmt(b.atk * (S.bossDmgMul ?? 2))}</b> · Phòng <b>${fmt(b.def)}</b>${b.effect ? ` · gây ${esc((X.effect[b.effect] || {}).name || b.effect)} ${b.effectChance}%` : ""}<br>Chiêu: ${esc(pats)}<br><span class="bad">Dưới ${S.rageHpPct ?? 50}% máu boss nổi giận: ra chiêu dồn dập hơn và thêm ${S.rageExtraPatterns ?? 2} chiêu.</span></p>
     <p class="small muted">${reward}</p>
     <div class="ctrl">${P.ctrl === "B"
       ? `<div><b>Chuột trái</b> bấm để đi, giữ để đi theo chuột</div><div><b>Space</b> khinh công về phía chuột (tốn 20 thể lực)</div>
-      ${keyLine("Giữ Q", "lmb")}${keyLine("W", "rmb")}${keyLine("E", "q")}<div><b>R</b> để dành cho chiêu sau này</div>`
+      ${keyLine("Tự đánh", "lmb")}${tvt("Q")}${keyLine("W", "rmb")}${keyLine("E", "q")}<div><b>R</b> để dành cho chiêu sau này</div>`
       : `<div><b>WASD</b> di chuyển</div><div><b>Space</b> khinh công (tốn 20 thể lực)</div>
-      ${keyLine("Chuột trái", "lmb")}${keyLine("Chuột phải", "rmb")}${keyLine("Q", "q")}`}<div><b>Esc</b> tạm dừng / bỏ chạy / đổi điều khiển</div>
+      ${keyLine("Tự đánh", "lmb")}${tvt("Chuột trái")}${keyLine("Chuột phải", "rmb")}${keyLine("Q", "q")}`}<div><b>Esc</b> tạm dừng / bỏ chạy / đổi điều khiển</div>
       ${hk("1")}${hk("2")}${hk("3")}</div>
     <p class="small muted">Kiểu điều khiển: ${P.ctrl === "B" ? "B (chuột để đi)" : "A (WASD)"} · đổi ở tab Tùy chỉnh hoặc trong màn tạm dừng.</p>
     <p>${note}</p>
@@ -1012,8 +1016,8 @@ function renderOptions() {
       <p class="muted small">Thoát ra màn chọn 1 trong ${store.MAX_CHARS} nhân vật của tài khoản. Nhân vật này vẫn được tính treo máy khi vắng mặt (tối đa ${S.offlineHours ?? 24} giờ).</p></div>
     <div class="panel"><div class="panel-t">Điều khiển & đồ họa</div>
       <div class="muted small" style="margin-bottom:6px">Kiểu điều khiển khi đánh boss, PK</div>
-      ${opt("ctrl", "A", P.ctrl, "Kiểu A · WASD", "WASD di chuyển · giữ chuột trái đánh · chuột phải chiêu phụ · Q buff · Space khinh công")}
-      ${opt("ctrl", "B", P.ctrl, "Kiểu B · chuột để đi", "Chuột trái bấm để đi, giữ để đi theo chuột · giữ Q đánh · W chiêu phụ · E buff · R để dành · Space khinh công về phía chuột")}
+      ${opt("ctrl", "A", P.ctrl, "Kiểu A · WASD", "WASD di chuyển · chiêu chính tự đánh · chuột phải chiêu phụ · Q buff · Space khinh công")}
+      ${opt("ctrl", "B", P.ctrl, "Kiểu B · chuột để đi", "Chuột trái bấm để đi, giữ để đi theo chuột · chiêu chính tự đánh · W chiêu phụ · E buff · R để dành · Space khinh công về phía chuột")}
       <div class="muted small" style="margin:10px 0 6px">Đồ họa</div>
       ${opt("gfx", "cao", P.gfx, "Cao", "Hình nền map, tia lửa, chữ có viền")}
       ${opt("gfx", "thap", P.gfx, "Thấp (máy yếu)", "Bỏ hình nền và hiệu ứng phụ cho mượt hơn")}

@@ -234,6 +234,7 @@ export class Battle {
         if (!this.keys[k]) {
           if (k === " ") this._dash();
           if (this.modeB) {
+            if (k === "q") this.lmbPress = true;          // bản 2.4: Q = bấm chiêu chính (Thê Vân Tung lướt)
             if (k === "w") this._cast("rmb");
             if (k === "e") this._cast("q");
             if (k === "r") this._note("Ô R để dành cho chiêu sau này", "#aaa");
@@ -250,6 +251,7 @@ export class Battle {
         if (e.button === 0) {
           this.mouse.l = true;
           if (this.modeB) { this._mouseWorld(); this.moveTo = { x: this.mouse.x, y: this.mouse.y }; }
+          else this.lmbPress = true;                      // bản 2.4: bấm chuột trái (Thê Vân Tung lướt)
         }
         if (e.button === 2 && !this.modeB) this._cast("rmb");
       },
@@ -304,7 +306,7 @@ export class Battle {
   _atkMul() { const f = this.pl.fx; let m = this._speedMul(); if (f.freeze > 0) m *= 0.5; return m; }
   _effVal(id, d) { const e = X.effect[id]; return e && e.value ? e.value : d; }
   _effDur(id, d) { const e = X.effect[id]; return e && e.dur ? e.dur : d; }
-  _firing() { return this.modeB ? !!this.keys.q : this.mouse.l; }
+  _firing() { return !this.over; }      // bản 2.4: chiêu chính tự đánh cho mọi phái (không cần giữ chuột / giữ Q)
 
   // ---------- Kỹ năng ----------
   _dash() {
@@ -413,26 +415,38 @@ export class Battle {
       r, r0: r, sc, mul, life: 1.6, age: 0, opt: { noFx: o.noFx, slowPct: o.slowPct, slowDur: o.slowDur }, size: o.size || 1 });
   }
 
-  // ---- Võ Đang Trường Quyền: nắm đấm xoay quanh người khi giữ nút đánh ----
+  // ---- Võ Đang Trường Quyền (bản 2.4): tự bật, tay quyền xoay quanh người; cấp 4, 8, 12 thêm 1 tay ----
+  _fistN() { const sc = this.sc.lmb; return sc ? Math.max(1, Math.round(sc.count || 1)) + Math.floor((sc.lv || 1) / 4) : 1; }
   _updateFist(dt, holding) {
     const k = this.sk.lmb, sc = this.sc.lmb, pl = this.pl;
     if (!holding || !k || k.s.mech !== "orbit" || !k.learned || !k.ok || !sc || !this._can("cast")) { this.fist = null; return; }
     if (!this.fist) this.fist = { ang: pl.aim - 1.2, hitT: new Map() };
-    const f = this.fist, r = Math.max(50, sc.size);
+    const f = this.fist, r = Math.max(50, sc.size), n = this._fistN();
     f.ang += (3 + sc.aspd * this._atkMul() * 2.2) * dt;        // tốc đánh càng cao xoay càng nhanh
-    f.r = r; f.x = pl.x + Math.cos(f.ang) * r; f.y = pl.y + Math.sin(f.ang) * r;
-    for (const [t, v] of f.hitT) f.hitT.set(t, v - dt);
+    f.r = r; f.pts = [];
+    for (const [t, v] of f.hitT) f.hitT.set(t, v.map(x => x - dt));
     const gap = 1 / Math.max(0.5, sc.aspd * this._atkMul());
-    this._hitTargets(f.x, f.y, 18, (tg, boss) => {
-      if ((f.hitT.get(tg) || 0) > 0) return; f.hitT.set(tg, gap);
-      const opt = { noFx: true, stun: 0.3, imm: 1.2 };
-      boss ? this._dmgBoss(sc, 1, opt) : this._dmgMinion(tg, sc, 1, opt);
-      this._spark(f.x, f.y, elemColor(this.el), 3);
-    });
-    // Thê Vân Tung: địch ở ngoài vòng nắm đấm thì lướt tới
-    const ds = this.passive.dash;
-    if (!ds || this.dashStrikeCd > 0 || this.strike || pl.dashT > 0 || !this._can("move")) return;
-    const tg = this._nearestTarget(); if (!tg) return;
+    for (let i = 0; i < n; i++) {                                 // mỗi tay tính trúng riêng
+      const a = f.ang + i * TAU / n, x = pl.x + Math.cos(a) * r, y = pl.y + Math.sin(a) * r;
+      f.pts.push({ x, y, a });
+      this._hitTargets(x, y, 18, (tg, boss) => {
+        const arr = f.hitT.get(tg) || []; if ((arr[i] || 0) > 0) return;
+        arr[i] = gap; f.hitT.set(tg, arr);
+        const opt = { noFx: true, stun: 0.3, imm: 1.2 };
+        boss ? this._dmgBoss(sc, 1, opt) : this._dmgMinion(tg, sc, 1, opt);
+        this._spark(x, y, elemColor(this.el), 3);
+      });
+    }
+  }
+  // Thê Vân Tung (bản 2.4): bấm chuột trái (kiểu B: Q) thì lướt tới địch gần con trỏ nhất
+  _tvtDash() {
+    const k = this.sk.lmb, sc = this.sc.lmb, pl = this.pl, ds = this.passive.dash;
+    if (!ds || !k || k.s.mech !== "orbit" || !k.learned || !k.ok || !sc) return;
+    if (this.dashStrikeCd > 0) return this._note("Thê Vân Tung đang hồi " + this.dashStrikeCd.toFixed(1) + "s", "#aaa");
+    if (this.strike || pl.dashT > 0 || !this._can("move")) return;
+    this._mouseWorld();
+    const r = Math.max(50, sc.size);
+    const tg = this._nearestTarget(this.mouse.x, this.mouse.y); if (!tg) return;
     const d = dist(pl.x, pl.y, tg.x, tg.y);
     if (d <= r + tg.r + 8) return;
     const range = 260 + 15 * (ds.lv - 1), go = Math.min(range, d - tg.r - r * 0.4);
@@ -443,9 +457,9 @@ export class Battle {
     this.dashStrikeCd = 3;
     if (this.modeB) this.moveTo = null;
   }
-  _nearestTarget() {
-    let best = this.B.hp > 0 ? this.B : null, bd = best ? dist(this.pl.x, this.pl.y, best.x, best.y) : 1e9;
-    for (const m of this.minions) { if (m.hp <= 0) continue; const d = dist(this.pl.x, this.pl.y, m.x, m.y); if (d < bd) { bd = d; best = m; } }
+  _nearestTarget(x = this.pl.x, y = this.pl.y) {      // mặc định gần nhân vật; bản 2.4 truyền vị trí con trỏ
+    let best = this.B.hp > 0 ? this.B : null, bd = best ? dist(x, y, best.x, best.y) : 1e9;
+    for (const m of this.minions) { if (m.hp <= 0) continue; const d = dist(x, y, m.x, m.y); if (d < bd) { bd = d; best = m; } }
     return best;
   }
 
@@ -497,11 +511,21 @@ export class Battle {
   _taijiLaunch(slot, sc) {
     const pl = this.pl, a = pl.aim, sp = 560;
     this.taiji = { slot, sc, x: pl.x + Math.cos(a) * 30, y: pl.y + Math.sin(a) * 30, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
-      r: Math.max(18, sc.size * 0.55), t: Math.max(0.5, sc.dur || 3.5), rot: 0 };
+      r: Math.max(18, sc.size * 0.55), t: 3.5, zd: Math.max(0.5, sc.dur || 3), rot: 0 };     // bay tối đa 3,5 giây; ô Thời gian = thời gian vòng lớn
   }
   _updateTaiji(dt) {
     const T = this.taiji; if (!T) return;
-    T.t -= dt; T.rot += dt * 5;
+    T.t -= dt; T.rot += dt * (T.zone ? 2 : 5);
+    if (T.zone) {      // bản 2.4: vòng đã trúng → đứng yên, to gấp đôi; địch chạm vòng bị choáng nhỏ 0,3 giây, nghỉ 0,5 giây, lặp lại
+      T.nx -= dt;
+      if (T.nx <= 0) {
+        let any = false;
+        this._hitTargets(T.x, T.y, T.r, tg => { any = true; tg.fx.stun = Math.max(tg.fx.stun || 0, 0.3); });   // bỏ qua miễn choáng, không cộng thêm miễn choáng
+        if (any) { T.nx = 0.8; this.fx.push({ type: "ring", x: T.x, y: T.y, r: T.r, t: 0, life: 0.25, color: elemColor(this.el) }); }
+      }
+      if (T.t <= 0) { this.taiji = null; this.pl.cd[T.slot] = T.sc.cd || 1; }
+      return;
+    }
     T.x += T.vx * dt; T.y += T.vy * dt;
     if (T.x < AR.x1 + T.r) { T.x = AR.x1 + T.r; T.vx = Math.abs(T.vx); }
     if (T.x > AR.x2 - T.r) { T.x = AR.x2 - T.r; T.vx = -Math.abs(T.vx); }
@@ -512,10 +536,10 @@ export class Battle {
     this._hitTargets(T.x, T.y, T.r, (tg, boss) => { if (!hit) hit = [tg, boss]; });
     if (hit) {
       const [tg, boss] = hit;
-      const opt = Math.random() < 0.5 ? { noFx: true, stun: 1.5 } : { noFx: true, slowPct: 50, slowDur: 3.5 };
-      boss ? this._dmgBoss(T.sc, 1, opt) : this._dmgMinion(tg, T.sc, 1, opt);
-      this.fx.push({ type: "ring", x: T.x, y: T.y, r: T.r * 1.6, t: 0, life: 0.4, color: elemColor(this.el) });
-      T.t = 0;
+      boss ? this._dmgBoss(T.sc, 1, { noFx: true }) : this._dmgMinion(tg, T.sc, 1, { noFx: true });    // sát thương 1 lần lúc trúng
+      this.fx.push({ type: "ring", x: T.x, y: T.y, r: T.r * 2.2, t: 0, life: 0.4, color: elemColor(this.el) });
+      T.zone = true; T.r *= 2; T.vx = T.vy = 0; T.t = T.max = T.zd; T.nx = 0;
+      return;
     }
     if (T.t <= 0) { this.taiji = null; this.pl.cd[T.slot] = T.sc.cd || 1; }
   }
@@ -936,11 +960,12 @@ export class Battle {
     pl.y = clamp(pl.y, AR.y1 + pl.r, AR.y2 - pl.r);
     this._updateCam(dt);
 
-    // đánh thường (chuột trái kiểu A, giữ Q kiểu B)
+    // đánh thường: bản 2.4 tự đánh cho mọi phái; bấm chuột trái (kiểu B: Q) chỉ dùng cho Thê Vân Tung
     const firing = this._firing();
     pl.fireCd -= dt;
     if (firing && pl.fireCd <= 0 && this._can("cast")) pl.fireCd = this._fireLmb();
     this._updateFist(dt, firing);
+    if (this.lmbPress) { this.lmbPress = false; this._tvtDash(); }
     if (this.beamCharge) {
       this.beamCharge.t += dt;
       if (this.beamCharge.t >= 0.4) { const bc = this.beamCharge; this.beamCharge = null; this._fireBeams(bc.slot, bc.sc); }
@@ -1306,8 +1331,8 @@ export class Battle {
       c.font = "18px sans-serif"; c.fillStyle = "#f2c230";
       c.fillText(`C: điều khiển kiểu ${this.modeB ? "B (chuột để đi)" : "A (WASD)"}   ·   G: đồ họa ${this.low ? "Thấp" : "Cao"}   ·   P: FPS ${this.p.showFps ? "bật" : "tắt"}`, W / 2, H / 2 + 25);
       c.font = "15px sans-serif"; c.fillStyle = "#999";
-      c.fillText(this.modeB ? "Kiểu B: chuột trái bấm để đi, giữ để đi theo chuột · giữ Q đánh · W chiêu phụ · E buff · Space khinh công về phía chuột"
-        : "Kiểu A: WASD đi · giữ chuột trái đánh · chuột phải chiêu phụ · Q buff · Space khinh công", W / 2, H / 2 + 58);
+      c.fillText(this.modeB ? "Kiểu B: chuột trái bấm để đi, giữ để đi theo chuột · chiêu chính tự đánh · W chiêu phụ · E buff · Space khinh công về phía chuột"
+        : "Kiểu A: WASD đi · chiêu chính tự đánh · chuột phải chiêu phụ · Q buff · Space khinh công", W / 2, H / 2 + 58);
     }
     if (this.over && this.over !== "flee") {
       c.fillStyle = `rgba(0,0,0,${Math.min(0.6, this.overT * 0.6)})`; c.fillRect(0, 0, W, H);
@@ -1332,9 +1357,9 @@ export class Battle {
     if (this.fist) {
       const f = this.fist;
       if (!this.low) { c.strokeStyle = "rgba(255,255,255,0.12)"; c.setLineDash([4, 6]); c.lineWidth = 1.5; c.beginPath(); c.arc(pl.x, pl.y, f.r, 0, TAU); c.stroke(); c.setLineDash([]); }
-      if (!this._drawFx(c, "lmb", "A", f.x, f.y, f.ang, 34)) {
+      for (const q of f.pts || []) if (!this._drawFx(c, "lmb", "A", q.x, q.y, q.a, 34)) {
         c.fillStyle = pc; c.strokeStyle = "#fff"; c.lineWidth = 2;
-        c.beginPath(); c.arc(f.x, f.y, 12, 0, TAU); c.fill(); c.stroke();
+        c.beginPath(); c.arc(q.x, q.y, 12, 0, TAU); c.fill(); c.stroke();
       }
     }
     // Vạn Kiếm Quy Tông
@@ -1350,12 +1375,18 @@ export class Battle {
     // Thiên Địa Vô Cực
     if (this.taiji) {
       const T = this.taiji;
+      if (T.zone) {      // vòng lớn: nền mờ + vạch thời gian còn lại
+        c.fillStyle = "rgba(255,255,255,0.07)"; c.beginPath(); c.arc(T.x, T.y, T.r, 0, TAU); c.fill();
+        c.strokeStyle = elemColor(this.el); c.lineWidth = 3; c.beginPath(); c.arc(T.x, T.y, T.r + 6, -Math.PI / 2, -Math.PI / 2 + TAU * clamp(T.t / T.max, 0, 1)); c.stroke();
+        c.globalAlpha = 0.6;
+      }
       if (!this._drawFx(c, T.slot, "A", T.x, T.y, T.rot, T.r * 2.3)) {
         c.save(); c.translate(T.x, T.y); c.rotate(T.rot);
         c.fillStyle = "#eee"; c.beginPath(); c.arc(0, 0, T.r, 0, TAU); c.fill();
         c.fillStyle = "#333"; c.beginPath(); c.arc(0, 0, T.r, -Math.PI / 2, Math.PI / 2); c.arc(0, T.r / 2, T.r / 2, Math.PI / 2, -Math.PI / 2, true); c.arc(0, -T.r / 2, T.r / 2, Math.PI / 2, -Math.PI / 2); c.fill();
         c.restore();
       }
+      c.globalAlpha = 1;
     }
     // Lục Mạch Thần Kiếm: lúc gồng (nét đứt mảnh + hình gồng), lúc bắn (tia + hình kiếm khí bay theo)
     if (this.beamCharge) {
@@ -1544,15 +1575,17 @@ export class Battle {
 
     // thanh kỹ năng
     const B2 = this.modeB, slots = [];
-    const keysOf = B2 ? [["lmb", "Giữ Q"], ["rmb", "W"], ["q", "E"]] : [["lmb", "Chuột trái"], ["rmb", "Chuột phải"], ["q", "Q"]];
+    const keysOf = B2 ? [["lmb", "Q"], ["rmb", "W"], ["q", "E"]] : [["lmb", "Chuột trái"], ["rmb", "Chuột phải"], ["q", "Q"]];
     for (const [slot, key] of keysOf) {
       const k = this.sk[slot], sc = this.sc[slot];
       if (!k) { slots.push({ key, name: "—", off: "Không có" }); continue; }
       const m = k.s.mech;
+      const tvt = slot === "lmb" && m === "orbit" && this.passive.dash;       // bản 2.4: bấm chiêu chính = Thê Vân Tung lướt
       const active = (m === "boomerang" && this.vk) ? (B2 ? "W: gọi kiếm về" : "Chuột phải: gọi về")
-        : (m === "bounce" && this.taiji) ? "Đang bay" : (m === "beam" && this.beamCharge) ? "Đang gồng" : "";
-      slots.push({ key, name: k.s.name, off: !k.learned ? "Chưa học" : !k.ok ? "Cần " + WEAPON_NAMES[k.s.weapon] : "", active,
-        cd: slot === "lmb" ? 0 : pl.cd[slot], max: sc ? sc.cd || 1 : 1, mp: sc ? sc.mp : 0, img: k.s.img });
+        : (m === "bounce" && this.taiji) ? (this.taiji.zone ? "Vòng còn " + Math.max(0, this.taiji.t).toFixed(1) + "s" : "Đang bay") : (m === "beam" && this.beamCharge) ? "Đang gồng"
+        : (slot === "lmb" && !tvt) ? "Tự đánh" : "";
+      slots.push({ key: tvt ? key + ": lướt" : key, name: k.s.name, off: !k.learned ? "Chưa học" : !k.ok ? "Cần " + WEAPON_NAMES[k.s.weapon] : "", active,
+        cd: slot === "lmb" ? (tvt ? this.dashStrikeCd : 0) : pl.cd[slot], max: slot === "lmb" ? (tvt ? 3 : 1) : sc ? sc.cd || 1 : 1, mp: sc ? sc.mp : 0, img: k.s.img });
     }
     if (B2) slots.push({ key: "R", name: "Sắp có", off: "", empty: true });
     slots.push({ key: "Space", name: "Khinh công", cd: pl.cd.dash, max: S.dashCd ?? 1.2, off: pl.sta < (S.dashStamina ?? 20) ? "Thiếu thể lực" : "" });
@@ -1643,7 +1676,7 @@ export class Battle {
         x: Math.round(pl.x), y: Math.round(pl.y), a: Math.round(pl.aim * 20) / 20,
         at: this._firing() && lk && lk.learned && lk.ok && this._can("cast") ? 1 : 0,
         hp: Math.round(100 * pl.hp / Math.max(1, this.st.hp)),
-        lm: lk && lk.learned && lk.ok ? lk.s.id : "", ln: sc ? sc.count : 1, ls: sc ? Math.round(sc.size || 0) : 0,
+        lm: lk && lk.learned && lk.ok ? lk.s.id : "", ln: sc ? (lk.s.mech === "orbit" ? this._fistN() : sc.count) : 1, ls: sc ? Math.round(sc.size || 0) : 0,
         as: sc ? Math.round(sc.aspd * this._atkMul() * 10) : 0
       };
       if (this.time - this.netDmAt >= 0.5) { cur.dm = Math.round(this.dealt); this.netDmAt = this.time; }
@@ -1721,7 +1754,7 @@ export class Battle {
       case "boomerang":
         for (let i = 0; i < n; i++) this._ghost(r, a + (i - (n - 1) / 2) * 0.2, { kind: "vk", slot, sp: 1300, life: Math.max(1, ev.d || 4) + 1.5, extra: { st: "out", d: 0, hold: Math.max(1, ev.d || 4) } });
         break;
-      case "bounce": this._ghost(r, a, { kind: "taiji", slot, sp: 560, life: Math.max(0.5, ev.d || 3.5), r: Math.max(18, size * 0.55), extra: { rot: 0 } }); break;
+      case "bounce": this._ghost(r, a, { kind: "taiji", slot, sp: 560, life: 3.5, r: Math.max(18, size * 0.55), extra: { rot: 0, zd: Math.max(0.5, ev.d || 3) } }); break;
       case "beam": {
         const fan = 40 * DEG;
         r.beam = { t: 0, slot, angs: n === 1 ? [a] : Array.from({ length: n }, (_, i) => a - fan / 2 + fan * i / (n - 1)) };
@@ -1765,11 +1798,12 @@ export class Battle {
       }
       g.x += g.vx * dt; g.y += g.vy * dt;
       if (g.kind === "taiji") {
-        g.rot += dt * 5;
+        g.rot += dt * (g.zone ? 2 : 5);
+        if (g.zone) continue;                    // bản 2.4: vòng đã trúng thì đứng yên tới hết thời gian
         if (g.x < AR.x1 + g.r || g.x > AR.x2 - g.r) g.vx = -g.vx;
         if (g.y < AR.y1 + g.r || g.y > AR.y2 - g.r) g.vy = -g.vy;
         g.x = clamp(g.x, AR.x1 + g.r, AR.x2 - g.r); g.y = clamp(g.y, AR.y1 + g.r, AR.y2 - g.r);
-        if (hitDummy(g.x, g.y, g.r)) { this.fx.push({ type: "ring", x: g.x, y: g.y, r: g.r * 1.6, t: 0, life: 0.4, color: g.col }); g.life = 0; }
+        if (hitDummy(g.x, g.y, g.r)) { this.fx.push({ type: "ring", x: g.x, y: g.y, r: g.r * 2.2, t: 0, life: 0.4, color: g.col }); g.zone = true; g.r *= 2; g.vx = g.vy = 0; g.life = g.zd || 3; }
         continue;
       }
       if (g.kind === "tornado") {
@@ -1796,7 +1830,9 @@ export class Battle {
         continue;
       }
       if (g.kind === "taiji") {
+        if (g.zone) { c.fillStyle = "rgba(255,255,255,0.07)"; c.beginPath(); c.arc(g.x, g.y, g.r, 0, TAU); c.fill(); c.globalAlpha = 0.6; }
         if (!this._drawFx(c, g.slot, "A", g.x, g.y, g.rot, g.r * 2.3)) { c.strokeStyle = g.col; c.lineWidth = 4; c.beginPath(); c.arc(g.x, g.y, g.r, 0, TAU); c.stroke(); }
+        c.globalAlpha = 1;
         continue;
       }
       if (g.kind === "tornado") {
@@ -1833,9 +1869,12 @@ export class Battle {
         this._drawStaff(c, r.x + Math.cos(a) * r.orbit.r, r.y + Math.sin(a) * r.orbit.r, a + Math.PI / 2, 0.8);
       }
       const lm = X.skill[s.lm];
-      if (s.at && lm && lm.mech === "orbit") {            // nắm đấm Trường Quyền xoay quanh người
-        const rr = Math.max(50, s.ls || 50), fx = r.x + Math.cos(r.fa) * rr, fy = r.y + Math.sin(r.fa) * rr;
-        if (!this._drawFx(c, this._remoteFx(lm.id, s.s), "A", fx, fy, r.fa, 34)) { c.fillStyle = r.col; c.beginPath(); c.arc(fx, fy, 12, 0, TAU); c.fill(); }
+      if (s.at && lm && lm.mech === "orbit") {            // nắm đấm Trường Quyền xoay quanh người (bản 2.4: nhiều tay)
+        const rr = Math.max(50, s.ls || 50), nn = Math.max(1, s.ln || 1);
+        for (let i = 0; i < nn; i++) {
+          const fa = r.fa + i * TAU / nn, fx = r.x + Math.cos(fa) * rr, fy = r.y + Math.sin(fa) * rr;
+          if (!this._drawFx(c, this._remoteFx(lm.id, s.s), "A", fx, fy, fa, 34)) { c.fillStyle = r.col; c.beginPath(); c.arc(fx, fy, 12, 0, TAU); c.fill(); }
+        }
       }
       if (r.beam) {
         c.strokeStyle = "rgba(150,215,255,0.5)"; c.lineWidth = 1; c.setLineDash([4, 8]);
