@@ -1,4 +1,4 @@
-# Võ Lâm Yêu Nước — Hướng dẫn cài đặt (bản 2.3)
+# Võ Lâm Yêu Nước — Hướng dẫn cài đặt (bản 2.4)
 
 ## 1. Đưa game lên GitHub Pages
 1. Tạo repo mới, ví dụ `volam-yeunuoc`.
@@ -54,7 +54,7 @@ Có 2 kiểu, đổi ở tab **Tùy chỉnh**, hoặc trong trận bấm Esc r�
 | Việc | Kiểu A (WASD) | Kiểu B (chuột để đi) |
 |---|---|---|
 | Di chuyển | WASD | Bấm chuột trái để đi tới điểm đó, giữ để đi theo chuột |
-| Chiêu chính | Giữ chuột trái | Giữ Q |
+| Chiêu chính | Tự đánh (bản 2.4). Võ Đang Quyền có Thê Vân Tung: bấm chuột trái để lướt | Tự đánh. Võ Đang Quyền có Thê Vân Tung: bấm Q để lướt |
 | Chiêu phụ | Chuột phải | W |
 | Buff / debuff | Q | E |
 | Để dành | — | R (chiêu sau này) |
@@ -138,3 +138,21 @@ Lần đầu đăng nhập Firebase mà tài khoản chưa có nhân vật, màn
   - Boss map rơi 5% (boss dưới cấp 50 rơi Hạ, 50–69 Trung, từ 70 Thượng). Boss Hoàng Kim 28% rơi kèm theo bậc boss.
   - Không bán cho cửa hàng, rao bán ở Chợ được.
 - Các con số trên đều sửa được trong editor (Cài đặt chung và Vật phẩm & cửa hàng).
+
+## 10. Bản 2.4: tự đánh, Võ Đang Quyền mới, nội lực theo cấp
+### Đánh boss
+- **Chiêu chính (chuột trái) tự đánh cho mọi phái**, không cần giữ chuột hay giữ Q, và không tốn nội lực. Vẫn ngắm theo con trỏ chuột.
+- **Chiêu phụ và Q tốn nội lực = nội lực gốc của skill + cấp nhân vật × hệ số của phái** (editor → Môn phái → "Nội lực chiêu phụ, Q: cộng thêm mỗi cấp nhân vật"). Hệ số hiện tại: Thiếu Lâm 0,45 · Đường Môn 1,6 · Võ Đang 6,3 · Đoàn Thị 2,8 · Cái Bang 1,6. Mỗi lần tung tốn khoảng 15–40% thanh nội lực, xả liên tục đúng hồi chiêu thì tốn xấp xỉ lượng nội lực hồi được, nên phải canh. Skill gốc 0 (như Tọa Vọng Vô Ngã) cũng tốn phần theo cấp.
+- Bắc Minh Thần Công: nội lực gốc 300 → 109 (trước đây cấp thấp không tung nổi).
+
+### Võ Đang Quyền
+- **Võ Đang Trường Quyền:** tay quyền tự xoay quanh người. Cấp 1 có 1 tay; cấp 4, 8, 12 mỗi mốc thêm 1 tay (tối đa 4 tay). Mỗi tay trúng gây choáng 0,3 giây.
+- **Thê Vân Tung:** bấm chuột trái (kiểu B: bấm Q) thì lướt tới kẻ địch gần con trỏ nhất nếu nó ở ngoài vòng tay quyền; hồi 3 giây, choáng 0,5 giây. Chưa học thì bấm chuột trái không làm gì. Ô chiêu chính trong trận hiện "Chuột trái: lướt" và số giây hồi.
+- **Thiên Địa Vô Cực:** vòng thái cực bay, nảy tường, xóa đạn trên đường bay (tối đa 3,5 giây). Trúng kẻ địch: gây sát thương 1 lần, vòng dừng tại chỗ và to gấp đôi trong 3–4 giây (ô Thời gian). Kẻ địch chạm vòng bị choáng 0,3 giây, nghỉ 0,5 giây rồi choáng tiếp (bỏ qua miễn choáng). Vòng lớn không xóa đạn. Hồi chiêu tính từ lúc vòng biến mất. Mê Tung Nhuyễn Ảnh tăng sát thương suốt lúc vòng còn trên sân.
+
+### Rơi đồ
+- **Đồ Hoàng Kim không bao giờ bị tự bán**: túi đầy vẫn cho vào (túi có thể vượt 50 ô, ví dụ 52/50). Lúc đó phải bán bớt mới nhặt tiếp đồ thường.
+- **Boss map:** mỗi trận 2% rơi thêm 1 món Hoàng Kim (editor → Cài đặt chung → "% boss map rơi thêm 1 món Hoàng Kim (mỗi trận)"). Trọng số Hoàng Kim ở cột boss trong Độ hiếm không còn dùng.
+- **Túi đồ → "Không nhặt đồ xanh khi treo máy":** bật lên thì đồ Hiếm (xanh) rơi lúc treo máy và lúc tắt web tự bán lấy vàng, không vào túi. Rơi từ boss vẫn nhặt bình thường.
+- **Vàng treo máy:** ô "Vàng mỗi con quái" 50 → 75, tổng vàng mỗi giờ khoảng 35% so với bản trước 2.3.
+- Viền đồ Hoàng Kim: vệt sáng chạy vòng trên đường viền, không bị hình món đồ che (sửa sau bản 2.3).

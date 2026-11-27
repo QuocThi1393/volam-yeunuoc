@@ -130,13 +130,13 @@ const isUsable = it => ["hp", "mp", "cure", "revive"].includes(it.kind);
 
 // Chỉ số gốc theo phái: giá trị cấp 1 + tăng mỗi cấp
 const SECT_BASE = {
-  thieulam: { hpBase: 260, hpLv: 55, mpBase: 80, mpLv: 6, atkBase: 18, atkLv: 5.5, defBase: 8, defLv: 3, mpRegen: 3, manaShield: 0, role: "Đỡ đòn: máu và phòng cao nhất, nội lực ít nhất." },
-  duongmon: { hpBase: 190, hpLv: 38, mpBase: 110, mpLv: 12, atkBase: 23, atkLv: 7, defBase: 5, defLv: 2, mpRegen: 3, manaShield: 0, role: "Sát thương cao nhất, máu vừa." },
-  vodang:   { hpBase: 160, hpLv: 30, mpBase: 200, mpLv: 25, atkBase: 20, atkLv: 6, defBase: 4, defLv: 1.5, mpRegen: 4, manaShield: 30, role: "Mana shield: nội lực nhiều nhất, máu mỏng nhất. 30% sát thương nhận vào trừ vào nội lực." },
-  doanthi:  { hpBase: 200, hpLv: 40, mpBase: 140, mpLv: 16, atkBase: 21, atkLv: 6.5, defBase: 5, defLv: 2, mpRegen: 3.5, manaShield: 0, role: "Cân bằng." },
-  caibang:  { hpBase: 230, hpLv: 48, mpBase: 90, mpLv: 9, atkBase: 22, atkLv: 6.5, defBase: 6, defLv: 2.5, mpRegen: 3, manaShield: 0, role: "Cận chiến bền, nội lực ít." }
+  thieulam: { hpBase: 260, hpLv: 55, mpBase: 80, mpLv: 6, atkBase: 18, atkLv: 5.5, defBase: 8, defLv: 3, mpRegen: 3, manaShield: 0, mpPerLv: 0.45, role: "Đỡ đòn: máu và phòng cao nhất, nội lực ít nhất." },
+  duongmon: { hpBase: 190, hpLv: 38, mpBase: 110, mpLv: 12, atkBase: 23, atkLv: 7, defBase: 5, defLv: 2, mpRegen: 3, manaShield: 0, mpPerLv: 1.6, role: "Sát thương cao nhất, máu vừa." },
+  vodang:   { hpBase: 160, hpLv: 30, mpBase: 200, mpLv: 25, atkBase: 20, atkLv: 6, defBase: 4, defLv: 1.5, mpRegen: 4, manaShield: 30, mpPerLv: 6.3, role: "Mana shield: nội lực nhiều nhất, máu mỏng nhất. 30% sát thương nhận vào trừ vào nội lực." },
+  doanthi:  { hpBase: 200, hpLv: 40, mpBase: 140, mpLv: 16, atkBase: 21, atkLv: 6.5, defBase: 5, defLv: 2, mpRegen: 3.5, manaShield: 0, mpPerLv: 2.8, role: "Cân bằng." },
+  caibang:  { hpBase: 230, hpLv: 48, mpBase: 90, mpLv: 9, atkBase: 22, atkLv: 6.5, defBase: 6, defLv: 2.5, mpRegen: 3, manaShield: 0, mpPerLv: 1.6, role: "Cận chiến bền, nội lực ít." }
 };
-const SECT_BASE_DEFAULT = { hpBase: 200, hpLv: 40, mpBase: 100, mpLv: 10, atkBase: 20, atkLv: 6, defBase: 5, defLv: 2, mpRegen: 3, manaShield: 0, role: "" };
+const SECT_BASE_DEFAULT = { hpBase: 200, hpLv: 40, mpBase: 100, mpLv: 10, atkBase: 20, atkLv: 6, defBase: 5, defLv: 2, mpRegen: 3, manaShield: 0, mpPerLv: 1.5, role: "" };
 function applySectBase(s) {
   const b = SECT_BASE[s.id] || SECT_BASE_DEFAULT;
   for (const k in b) {
@@ -151,7 +151,7 @@ function defaultData() {
 
   D.settings = {
     counterBonus: 15, offlineHours: 24, invSize: 50, invMiscSize: 30, partyHpPer: 25, partyDmgPer: 10, skillGemMul: 1, skillExtraTiers: 3, skillExtraPoints: 2, skillExtraGemMul: 2, roomDummyHp: 2000000, netRate: 10,
-    mobGoldMul: 50, mobGoldChance: 70, overLevelExpPer: 5, overLevelExpMax: 150, lotusGoldChance: 28,
+    mobGoldMul: 75, mobGoldChance: 70, overLevelExpPer: 5, overLevelExpMax: 150, lotusGoldChance: 28, mapBossGoldChance: 2,
     newbieGems: 10, newbieHp: 10, newbieMp: 10, newbieWeaponLv: 10, newbieWeaponRar: 3,
     staminaMax: 100, staminaRegen: 3, dashStamina: 20, dashCd: 1.2,
     bossDmgMul: 2, bossBulletMul: 2, bossGapMul: 0.8, rageHpPct: 50, rageGapMul: 0.5, rageExtraPatterns: 2, resetRefund: 100, maxLevel: 99, expBase: 100, expPow: 2.2,
@@ -414,7 +414,7 @@ const NEW_MECHS = [
 // field: { k, l(label), t(type), w(width s/m/l/xl), o(options fn), show(it), rr(re-render card on change), cols(lines) }
 const SECTIONS = [
   { group: "Nhân vật", key: "sects", title: "Môn phái & đường", noAdd: false,
-    help: "5 phái theo ngũ hành. Mỗi phái có 2 đường (vũ khí khác nhau). Tắt 'Mở chơi' thì phái hiện 'sắp ra mắt'. Chỉ số gốc = giá trị cấp 1 + (cấp − 1) × mỗi cấp; dòng vàng hiện sẵn kết quả ở cấp 90 để so các phái.",
+    help: "5 phái theo ngũ hành. Mỗi phái có 2 đường (vũ khí khác nhau). Tắt 'Mở chơi' thì phái hiện 'sắp ra mắt'. Chỉ số gốc = giá trị cấp 1 + (cấp − 1) × mỗi cấp; dòng vàng hiện sẵn kết quả ở cấp 90 để so các phái. Bản 2.4: nội lực tiêu hao của chuột phải và Q = nội lực gốc của skill + cấp nhân vật × ô 'Nội lực chiêu phụ, Q: cộng thêm mỗi cấp nhân vật'. Chiêu chuột trái tự đánh, không tốn nội lực.",
     head: it => { const at = (b, l) => Math.round((+b || 0) + (+l || 0) * 89).toLocaleString("vi-VN");
       return `${it.name || "(chưa đặt tên)"} · ${nameOf("elements", it.element)} <span class="muted" style="font-weight:400">· Cấp 90: Máu ${at(it.hpBase, it.hpLv)} · Nội lực ${at(it.mpBase, it.mpLv)} · Công ${at(it.atkBase, it.atkLv)} · Phòng ${at(it.defBase, it.defLv)}</span>`; },
     imgs: [{ k: "img", l: "Biểu tượng phái" }],
@@ -429,6 +429,7 @@ const SECTIONS = [
       { k: "atkBase", l: "Công cấp 1", t: "num", w: "m" }, { k: "atkLv", l: "Công + mỗi cấp", t: "num", w: "m" },
       { k: "defBase", l: "Phòng cấp 1", t: "num", w: "m" }, { k: "defLv", l: "Phòng + mỗi cấp", t: "num", w: "m" },
       { k: "mpRegen", l: "Hồi nội lực % tối đa/giây", t: "num", w: "m" }, { k: "manaShield", l: "Sát thương nhận vào nội lực % (gốc)", t: "num", w: "l" },
+      { k: "mpPerLv", l: "Nội lực chiêu phụ, Q: cộng thêm mỗi cấp nhân vật", t: "num", w: "l" },
       { k: "short", l: "Mô tả ngắn (thẻ chọn phái)", t: "text", w: "xl" },
       { k: "desc", l: "Mô tả / lối chơi", t: "area", w: "xl" }
     ],
@@ -454,7 +455,7 @@ const SECTIONS = [
       { k: "flatDmgLv", l: "+ mỗi cấp", t: "num", w: "s", show: it => !isPassive(it) },
       { k: "cd", l: "Hồi chiêu (giây)", t: "num", w: "m", show: it => it.slot === "rmb" || it.slot === "q" },
       { k: "cdLv", l: "− mỗi cấp", t: "num", w: "s", show: it => it.slot === "rmb" || it.slot === "q" },
-      { k: "mp", l: "Nội lực tiêu hao", t: "num", w: "m", show: it => !isPassive(it) },
+      { k: "mp", l: "Nội lực tiêu hao (gốc)", t: "num", w: "m", show: it => !isPassive(it) && it.slot !== "lmb" },
       { k: "dur", l: "Thời gian tác dụng (giây)", t: "num", w: "m", show: it => !isPassive(it) },
       { k: "durLv", l: "+ mỗi cấp", t: "num", w: "s", show: it => !isPassive(it) },
       { k: "size", l: "Kích thước / vùng", t: "num", w: "m", show: it => !isPassive(it) },
@@ -724,6 +725,7 @@ const SECTIONS = [
       { k: "overLevelExpPer", l: "Quái cao hơn mình mỗi cấp: thêm ?% kinh nghiệm", t: "num", w: "m" },
       { k: "overLevelExpMax", l: "Thưởng vượt cấp tối đa (%)", t: "num", w: "m" },
       { k: "lotusGoldChance", l: "% boss Hoàng Kim rơi kèm Thiên Sơn Tuyết Liên", t: "num", w: "m" },
+      { k: "mapBossGoldChance", l: "% boss map rơi thêm 1 món Hoàng Kim (mỗi trận)", t: "num", w: "m" },
       { k: "newbieGems", l: "Lễ bao tân thủ: số Ngộ Đạo Ngọc", t: "num", w: "m" },
       { k: "newbieHp", l: "Lễ bao tân thủ: số thuốc máu", t: "num", w: "m" },
       { k: "newbieMp", l: "Lễ bao tân thủ: số thuốc nội lực", t: "num", w: "m" },
