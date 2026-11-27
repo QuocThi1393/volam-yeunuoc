@@ -13,7 +13,8 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const fmt = L.fmt;
 
-let user = null, P = null;
+let user = null, P = null, CID = null;   // CID = mã nhân vật đang chơi (ô 1: mã tài khoản, ô 2–3: thêm _2, _3)
+let charList = [];
 let idle = { mon: null, hp: null, restUntil: 0 };
 let idleTimer = null, saveTimer = null, battle = null;
 let logs = [];
@@ -41,6 +42,8 @@ function itemIcon(it, size = 44, withLock = false) {
   return iconBox(L.itemImg(it), it.slot, col, size, withLock && it.lock ? LOCK_SVG : "", rarityClass(it.r, X.goldRar));
 }
 const INV = () => S.invSize || 50;
+// viền vật phẩm: Tuyết Liên theo loại (Hạ xanh, Trung tím, Thượng cam), lễ bao vàng (bản 2.3)
+const miscColor = m => m.kind === "levelup" ? rarityColor({ ha: 1, trung: 2, thuong: 3 }[m.bossTier] ?? 1) : m.kind === "newbie" ? "#f2c230" : "#6a7090";
 function slotLabel(it) {
   const s = X.slot[it.slot]; const w = L.itemWeaponType(it);
   return (s ? s.name : it.slot) + (w ? " · " + WEAPON_NAMES[w] : "");
@@ -72,10 +75,10 @@ function itemDetailHtml(it) {
 
 // ---------- Lưu ----------
 async function saveNow() {
-  if (!P || !user) return;
+  if (!P || !user || !CID) return;
   clearTimeout(saveTimer); saveTimer = null;
   P.lastSeen = Date.now();
-  try { await store.savePlayer(user.uid, P); }
+  try { await store.savePlayer(CID, P); }
   catch (e) { console.error(e); toast(e.backup ? "Lưu lên Firebase lỗi, đã lưu tạm trong máy. Lần sau lưu được sẽ tự đẩy lên." : "Lưu thất bại: " + (e.code || e.message)); }
 }
 function markDirty(delay = 5000) { if (!saveTimer) saveTimer = setTimeout(saveNow, delay); }
@@ -92,19 +95,8 @@ if (store.DEMO) $("login-note").textContent = "Chế độ thử: nhập tên b�
   store.init(async u => {
     user = u;
     if (!u) { show("scr-login"); return; }
-    try {
-      const data = await store.loadPlayer(u.uid);
-      if (!data) { showCreate(); return; }
-      if (data.version !== L.SAVE_VERSION) { showCreate(data); return; }
-      P = L.normalizePlayer(data);
-      const away = (Date.now() - (P.lastSeen || Date.now())) / 1000;
-      let off = null;
-      if (away > 120) off = L.offlineGains(P, away);
-      startMain();
-      if (off && off.kills > 0) showOffline(off);
-      await saveNow();
-      claimMarket();
-    } catch (e) {
+    try { await showChars(); }
+    catch (e) {
       console.error(e);
       show("scr-login");
       $("login-err").textContent = "Không tải được dữ liệu: " + (e.code || e.message);
@@ -121,14 +113,95 @@ $("login-form").addEventListener("submit", async e => {
   e.preventDefault();
   $("login-err").textContent = "";
   const btn = $("login-btn"); btn.disabled = true; btn.textContent = "Đang vào...";
-  try { await store.login($("login-user").value, $("login-pass").value); }
+  const remember = $("login-remember").checked;
+  localStorage.setItem("vlyn_remember", remember ? "1" : "0");
+  try { await store.login($("login-user").value, $("login-pass").value, remember); }
   catch (err) { $("login-err").textContent = err.message; }
   btn.disabled = false; btn.textContent = "Đăng nhập";
 });
 
+$("login-remember").checked = localStorage.getItem("vlyn_remember") !== "0";
+
+// ---------- Chọn nhân vật (bản 2.3: mỗi tài khoản 3 ô) ----------
+const fmtDur = sec => { const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60); return h ? `${h} giờ ${m} phút` : `${m} phút`; };
+async function showChars() {
+  show("scr-chars");
+  $("chars-user").textContent = user.username;
+  $("chars-list").innerHTML = `<div class="muted">Đang tải nhân vật...</div>`;
+  charList = await store.listChars(user);
+  const cap = (S.offlineHours ?? 24) * 3600;
+  $("chars-list").innerHTML = charList.map((c, i) => {
+    const d = c.data;
+    if (!d) return `<div class="chslot empty"><div class="chav"><span>+</span></div><div class="muted small">Ô trống ${i + 1}/${store.MAX_CHARS}</div>
+      <button class="btn ghost" data-cnew="${c.cid}">+ Tạo nhân vật</button></div>`;
+    if (d.version !== L.SAVE_VERSION) return `<div class="chslot"><div class="chav"><span>?</span></div><b class="chname">${esc(d.name || "Nhân vật cũ")}</b>
+      <span class="muted small">Nhân vật bản 1, không dùng tiếp được</span><button class="btn ghost" data-cnew="${c.cid}">Tạo nhân vật mới</button></div>`;
+    const sc = X.sect[d.sect] || {}, away = Math.max(0, (Date.now() - (d.lastSeen || Date.now())) / 1000);
+    return `<div class="chslot"><div class="chav" style="border-color:${elemColor(sc.element)}">${sc.img ? `<img src="${sc.img}" alt="">` : ""}</div>
+      <b class="chname">${esc(d.name)}</b><span class="muted small">Lv${d.level} · ${esc(sc.name || "")} · ${esc((X.gender[d.gender] || {}).name || "")}</span>
+      <span class="small good">${away > 120 ? `Treo máy: +${fmtDur(Math.min(away, cap))}${away >= cap ? " (tối đa)" : ""}` : "Vừa chơi"}</span>
+      <button class="btn" data-cin="${c.cid}">Vào game</button><button type="button" class="linkbtn" data-cdel="${c.cid}">Xóa nhân vật</button></div>`;
+  }).join("");
+  document.querySelectorAll("[data-cin]").forEach(b => b.onclick = () => enterChar(b.dataset.cin));
+  document.querySelectorAll("[data-cnew]").forEach(b => b.onclick = () => showCreate((charList.find(c => c.cid === b.dataset.cnew) || {}).data, b.dataset.cnew));
+  document.querySelectorAll("[data-cdel]").forEach(b => b.onclick = () => deleteModal(b.dataset.cdel));
+}
+async function enterChar(cid) {
+  const c = charList.find(x => x.cid === cid);
+  if (!c || !c.data) return;
+  P = L.normalizePlayer(c.data); CID = cid;
+  logs = []; renderLog._init = false; idle = { mon: null, hp: null, restUntil: 0 }; sel = null; tab = "idle";
+  store.claimName(user, cid, P.name).catch(e => console.error("name", e));   // nhân vật tạo trước bản 2.3: giữ tên
+  const away = (Date.now() - (P.lastSeen || Date.now())) / 1000;
+  const off = away > 120 ? L.offlineGains(P, away) : null;
+  startMain();
+  if (off && off.kills > 0) showOffline(off);
+  await saveNow();
+  claimMarket();
+}
+// Tùy chỉnh → Chọn nhân vật: lưu rồi ra màn chọn (nhân vật vẫn tính treo máy khi vắng mặt)
+async function toCharSelect() {
+  if (battle) return toast("Đang trong trận.");
+  await saveNow();
+  stopIdle(); closeModal();
+  P = null; CID = null;
+  net.setMe({ st: "idle" });
+  await showChars();
+}
+async function deleteModal(cid) {
+  const c = charList.find(x => x.cid === cid), d = c && c.data;
+  if (!d) return;
+  modal(`<h3>Xóa nhân vật ${esc(d.name)}</h3><p class="muted">Đang kiểm tra Chợ...</p>`);
+  let info = { listings: 0, gold: 0 };
+  try { info = await store.charMarketInfo(user, cid); } catch (e) { console.error(e); }
+  modal(`<h3 class="bad">Xóa vĩnh viễn nhân vật ${esc(d.name)}?</h3>
+    <p>Sẽ mất toàn bộ:</p>
+    <div class="rw">· Túi đồ, đồ đang mặc, ${fmt(d.gold || 0)} vàng, kỹ năng (Lv${d.level || 1})</div>
+    <div class="rw">· <b>${info.listings} món đang rao trên Chợ</b></div>
+    <div class="rw">· ${fmt(info.gold)} vàng bán hàng chưa nhận</div>
+    <form id="del-form" class="form" style="margin-top:10px">
+      <label>${store.DEMO ? "Gõ lại đúng tên nhân vật để xác nhận" : "Nhập mật khẩu tài khoản để xác nhận"}
+        <input id="del-pw" type="${store.DEMO ? "text" : "password"}" autocomplete="${store.DEMO ? "off" : "current-password"}"></label>
+      <div class="bad" id="del-err"></div>
+      <div class="m-act"><button class="btn ghost" type="button" onclick="closeModal()">Hủy</button><button class="btn danger" type="submit">Xóa vĩnh viễn</button></div>
+    </form>`);
+  $("del-pw").focus();
+  $("del-form").onsubmit = async e => {
+    e.preventDefault();
+    const btn = $("del-form").querySelector("button[type=submit]"); btn.disabled = true;
+    try {
+      await store.deleteChar(user, cid, d.name, $("del-pw").value);
+      closeModal(); toast(`Đã xóa nhân vật ${d.name}.`);
+      await showChars();
+    } catch (err) { $("del-err").textContent = err.message; btn.disabled = false; }
+  };
+}
+$("chars-logout").onclick = () => store.logout();
+
 // ---------- Tạo nhân vật ----------
-let cGender = "nam", cSect = null;
-function showCreate(old) {
+let cGender = "nam", cSect = null, cSlot = null;
+function showCreate(old, cid) {
+  cSlot = cid || cSlot;
   $("create-user").textContent = user ? user.username : "";
   show("scr-create");
   cSect = cSect || (GD.sects.find(s => s.enabled) || GD.sects[0]).id;
@@ -144,7 +217,11 @@ function migrateOffer() {
     + list.map((d, i) => `<button type="button" class="btn ghost small-btn" data-mig="${i}" style="margin:6px 6px 0 0">${esc(d.name)} · Lv${d.level} ${esc((X.sect[d.sect] || {}).name || "")}</button>`).join("");
   document.querySelectorAll("[data-mig]").forEach(b => b.onclick = async () => {
     const d = { ...list[+b.dataset.mig] }, key = d.key; delete d.key;
-    P = L.normalizePlayer(d); P.username = user.username;
+    let ok = false;
+    try { ok = await store.claimName(user, cSlot, d.name); } catch (e) { $("create-err").textContent = "Không kiểm tra được tên: " + (e.code || e.message); return; }
+    if (!ok) { $("create-err").textContent = `Tên ${d.name} đã có người dùng, không chuyển được.`; return; }
+    P = L.normalizePlayer(d); P.username = user.username; CID = cSlot;
+    logs = []; renderLog._init = false; idle = { mon: null, hp: null, restUntil: 0 }; tab = "idle";
     await saveNow();
     localStorage.removeItem(key);          // xóa bản chơi thử để khỏi chuyển trùng sang tài khoản khác
     startMain();
@@ -180,8 +257,14 @@ $("create-form").addEventListener("submit", async e => {
   const name = $("c-name").value.trim();
   if (name.length < 2 || name.length > 16) { $("create-err").textContent = "Tên nhân vật từ 2 đến 16 ký tự."; return; }
   if (!X.sect[cSect] || !X.sect[cSect].enabled) { $("create-err").textContent = "Phái này chưa mở."; return; }
+  if (!cSlot) { $("create-err").textContent = "Chưa chọn ô nhân vật."; return; }
+  let ok = false;
+  try { ok = await store.claimName(user, cSlot, name); }
+  catch (err) { $("create-err").textContent = "Không kiểm tra được tên: " + (err.code || err.message) + (store.DEMO ? "" : " (đã dán firestore.rules mới chưa?)"); return; }
+  if (!ok) { $("create-err").textContent = `Tên "${name}" đã có người dùng, chọn tên khác.`; return; }
   P = L.newPlayer(name, cGender, cSect);
-  P.username = user.username;
+  P.username = user.username; CID = cSlot;
+  logs = []; renderLog._init = false; idle = { mon: null, hp: null, restUntil: 0 }; sel = null; tab = "idle";
   await saveNow();
   startMain();
   addLog({ t: `${name} bái nhập ${X.sect[cSect].name}, bắt đầu luyện công tại ${L.getMap(P.mapId).name}.`, c: "level" });
@@ -194,7 +277,8 @@ function startMain() {
   setTab(tab);
   startIdle();
   net.setOnChange(() => { if (tab === "party" && !battle) renderParty(); });
-  net.start(user, { n: P.name, l: P.level, s: P.sect }).catch(e => console.error("net", e));
+  if (net.started()) net.setMe({ n: P.name, l: P.level, s: P.sect, st: "idle" });
+  else net.start(user, { n: P.name, l: P.level, s: P.sect }).catch(e => console.error("net", e));
 }
 function setTab(t) {
   tab = t; sel = null;
@@ -203,9 +287,8 @@ function setTab(t) {
   renderAll();
 }
 document.querySelectorAll(".tabs button[data-tab]").forEach(b => b.onclick = () => setTab(b.dataset.tab));
-$("btn-logout").onclick = async () => { await saveNow(); store.logout(); };
 $("create-logout").onclick = () => store.logout();        // màn tạo nhân vật: đổi tài khoản khi chưa tạo nhân vật
-$("btn-pass").onclick = () => passwordModal();
+$("create-back").onclick = () => showChars();
 
 function renderAll() {
   renderHeader();
@@ -215,6 +298,7 @@ function renderAll() {
   if (tab === "shop") renderShop();
   if (tab === "market") renderMarket();
   if (tab === "party") renderParty();
+  if (tab === "opt") renderOptions();
   if (tab === "admin") renderAdmin();
 }
 
@@ -397,6 +481,7 @@ function showOffline(o) {
     <div class="rw">Tiêu diệt: <b>${fmt(o.kills)}</b> quái</div>
     <div class="rw">EXP: <b>+${fmt(o.exp)}</b>${o.levels.length ? ` · <span class="lvup">Lên cấp ${o.levels[o.levels.length - 1]}!</span>` : ""}</div>
     <div class="rw">Vàng: <b>+${fmt(o.gold + o.soldGold)}</b> (gồm ${o.sold} món đồ tự bán)</div>
+    ${o.deaths ? `<div class="rw muted">Trọng thương ${fmt(o.deaths)} lần (mỗi lần nghỉ 8 giây)</div>` : ""}
     ${o.kept.length ? `<div class="panel-t" style="margin-top:10px">Nhặt được ${o.kept.length} món</div>${kept}${o.kept.length > 12 ? `<div class="muted">... và ${o.kept.length - 12} món khác</div>` : ""}` : ""}
     <div class="m-act"><button class="btn" onclick="closeModal()">Nhận</button></div>`);
   addLog({ t: `Treo máy vắng mặt: ${fmt(o.kills)} quái, +${fmt(o.exp)} EXP.`, c: "level" });
@@ -427,7 +512,7 @@ function renderBag() {
       const n = Math.min(st, left);
       const keys = Object.keys(P.hot).filter(k => P.hot[k] === m.id);
       mcells.push(`<button class="cell ${sel && sel.type === "misc" && sel.id === m.id ? "sel" : ""}" data-misc="${m.id}" title="${esc(m.name)}">
-        ${iconBox(m.img, "misc", "#6a7090", 48, `<b class="qty">${n}</b>${keys.length ? `<i class="hk">${keys.join(",")}</i>` : ""}`)}</button>`);
+        ${iconBox(m.img, "misc", miscColor(m), 48, `<b class="qty">${n}</b>${keys.length ? `<i class="hk">${keys.join(",")}</i>` : ""}`)}</button>`);
     }
   });
   Object.keys(P.books).forEach(id => {
@@ -482,7 +567,7 @@ function renderDetail() {
     }
     box.innerHTML = itemDetailHtml(it) + wnote + `<div class="det-sub">So với đồ đang mặc${cur ? "" : " (đang trống)"}</div>
       <div class="det-stats">${diff || '<div class="muted">Như nhau</div>'}</div>
-      ${tooHigh ? `<div class="bad">Cần cấp ${it.lv - (S.maxOverLevel ?? 5)} để mặc.</div>` : ""}
+      ${tooHigh ? `<div class="bad">Cần cấp ${it.lv - (S.maxOverLevel ?? 0)} để mặc.</div>` : ""}
       <div class="m-act"><button class="btn" id="d-equip" ${tooHigh ? "disabled" : ""}>Mặc</button>
       <button class="btn ghost" id="d-sell" ${it.lock ? "disabled" : ""}>${it.lock ? "Đang khóa" : `Bán +${fmt(L.sellPrice(it))} vàng`}</button>
       ${lockBtn(it)}<button class="btn ghost" id="d-mk" ${it.lock ? "disabled" : ""}>Rao bán ở Chợ</button></div>`;
@@ -505,15 +590,26 @@ function renderDetail() {
     if (!m || !q) { sel = null; return renderDetail(); }
     const canHot = ["hp", "mp", "cure"].includes(m.kind);
     const keys = Object.keys(P.hot).filter(k => P.hot[k] === m.id);
-    box.innerHTML = `<div class="det-head">${iconBox(m.img, "misc", "#6a7090", 56)}<div><div style="font-weight:600;color:#fff">${esc(m.name)} ×${q}</div>
+    box.innerHTML = `<div class="det-head">${iconBox(m.img, "misc", miscColor(m), 56)}<div><div style="font-weight:600;color:#fff">${esc(m.name)} ×${q}</div>
       <div class="muted small">Vật phẩm · xếp chồng ${m.stack || 1} · không bán được</div></div></div>
       <div class="det-stats">${esc(m.desc || "")}</div>
+      ${m.kind === "levelup" ? `<div class="small">Dùng được khi dưới cấp ${m.useBelow || 100} · <b>Đã dùng ${(P.lotus || {})[m.id] || 0}/${m.useLimit || 3}</b></div>
+        <div class="m-act"><button class="btn" id="d-use" ${L.lotusCheck(P, m) ? "disabled" : ""}>Dùng</button></div>
+        ${L.lotusCheck(P, m) ? `<div class="bad small">${esc(L.lotusCheck(P, m))}</div>` : ""}` : ""}
+      ${m.kind === "newbie" ? `<div class="m-act"><button class="btn" id="d-open">Mở lễ bao</button></div>` : ""}
       ${m.cd ? `<div class="muted small">Chờ ${m.cd} giây giữa 2 lần dùng</div>` : ""}
       ${canHot ? `<div class="det-sub">Phím dùng trong trận${keys.length ? ": đang gán phím " + keys.join(", ") : ""}</div>
         <div class="m-act">${["1", "2", "3"].map(k => `<button class="btn ghost small-btn" data-hot="${k}">Gán phím ${k}</button>`).join("")}</div>` : ""}
       ${m.quest ? "" : `<div class="m-act"><button class="btn ghost" id="d-mk">Rao bán ở Chợ</button></div>`}`;
     document.querySelectorAll("[data-hot]").forEach(b => b.onclick = () => { P.hot[b.dataset.hot] = m.id; markDirty(); toast(`Phím ${b.dataset.hot}: ${m.name}`); renderBag(); });
     if ($("d-mk")) $("d-mk").onclick = () => listModal("misc", m.id, m.name, q);
+    if ($("d-use")) $("d-use").onclick = () => {
+      const r = L.useLotus(P, m.id);
+      if (r.err) return toast(r.err);
+      addLog({ t: `Dùng ${m.name}: lên cấp ${r.level}! +1 điểm skill`, c: "level" });
+      toast(`Lên cấp ${r.level}!`); saveNow(); renderAll();
+    };
+    if ($("d-open")) $("d-open").onclick = () => newbieModal();
     return;
   }
   if (sel.type === "book") {
@@ -530,6 +626,29 @@ function renderDetail() {
     if (own) $("d-read").onclick = () => { const e = L.readBook(P, b.id); if (e) return toast(e); toast(`Đã luyện ${b.name} lên cấp ${P.bikip[b.id]}`); markDirty(1000); renderAll(); };
     else $("d-bsell").onclick = () => { const g = L.sellBook(P, b.id); toast(`Đã bán, +${fmt(g)} vàng`); markDirty(); renderAll(); };
   }
+}
+// Lễ bao tân thủ: chọn 1 trong 2 vũ khí của phái (Huyền thoại cấp 10, dòng phụ ngẫu nhiên)
+function newbieModal() {
+  const lv = S.newbieWeaponLv ?? 10, rar = rarityOf(S.newbieWeaponRar ?? 3);
+  const cards = [1, 2].map(path => {
+    const wt = sectPathWeapon(P.sect, path), lmb = ((X.skillOf[P.sect] || {})[path] || {}).lmb, src = sprite(P.gender, wt);
+    return `<button type="button" class="card pcard" data-nwt="${wt}">${src ? `<img class="spr" src="${src}" alt="">` : ""}<div>
+      <div class="card-t" style="color:${rarityColor(S.newbieWeaponRar ?? 3)}">${WEAPON_NAMES[wt] || wt} ${esc(rar.name)} Lv${lv}</div>
+      <div class="card-s">${esc(sectPathName(P.sect, path))} · chiêu chính ${esc(lmb ? lmb.name : "—")}</div></div></button>`;
+  }).join("");
+  modal(`<h3>Lễ bao tân thủ</h3>
+    <p>Nhận ${S.newbieGems ?? 10} Ngộ Đạo Ngọc, ${S.newbieHp ?? 10} thuốc máu, ${S.newbieMp ?? 10} thuốc nội lực và chọn 1 vũ khí ${esc(rar.name)} cấp ${lv} (dòng phụ ngẫu nhiên):</p>
+    <div class="cards">${cards}</div>
+    <div class="m-act"><button class="btn ghost" onclick="closeModal()">Để sau</button></div>`);
+  document.querySelectorAll("[data-nwt]").forEach(b => b.onclick = () => {
+    const r = L.openNewbieBox(P, b.dataset.nwt);
+    if (r.err) return toast(r.err);
+    closeModal();
+    addLog({ t: `Mở Lễ bao tân thủ: ${r.got.join(", ")}, ${r.item.name} [${rarityOf(r.item.r).name}].`, c: "level" });
+    toast(`Nhận ${r.item.name} [${rarityOf(r.item.r).name}]`);
+    sel = { type: "item", id: r.item.id }; bagTab = "eq";
+    saveNow(); renderAll();
+  });
 }
 $("bag-sellall").onclick = () => {
   const r = L.sellAllCommon(P);
@@ -700,9 +819,10 @@ async function renderAdmin() {
     const list = await store.listPlayers();
     list.sort((a, b) => (b.level || 0) - (a.level || 0));
     const rows = list.map(p => {
-      const online = net.started() ? net.isOnline(p.uid) : Date.now() - (p.lastSeen || 0) < 360000;
+      const acct = String(p.uid).replace(/_[23]$/, ""), slot = /_([23])$/.exec(p.uid);
+      const online = net.started() ? net.onlineList().some(o => o.uid === acct && o.n === p.name) : Date.now() - (p.lastSeen || 0) < 360000;
       const seen = p.lastSeen ? new Date(p.lastSeen).toLocaleString("vi-VN") : "-";
-      return `<tr><td>${esc(p.name)}</td><td>${esc(p.username || p.uid)}</td><td>${X.sect[p.sect] ? esc(X.sect[p.sect].name) : "-"}</td>
+      return `<tr><td>${esc(p.name)}</td><td>${esc(p.username || acct)}${slot ? ` <span class="muted">(ô ${slot[1]})</span>` : ""}</td><td>${X.sect[p.sect] ? esc(X.sect[p.sect].name) : "-"}</td>
         <td>${X.gender[p.gender] ? esc(X.gender[p.gender].name) : "-"}</td><td>${p.level}</td><td>${fmt(p.gold || 0)}</td>
         <td>${(p.bag || p.inventory || []).length}</td><td>${p.version === L.SAVE_VERSION ? "2.0" : "cũ"}</td><td>${online ? '<span class="good">Đang online</span>' : seen}</td></tr>`;
     }).join("");
@@ -753,15 +873,15 @@ function bossIntro(kind, b) {
     : `Rơi ${b.drops} món (+${b.dropExtra}% thêm 1 món) · bí kíp ${BIKIP_TIER_NAMES[b.bikipTier] || ""} ${b.bikipChance}%${!P.beaten[b.id] ? " · hạ lần đầu mở map kế" : ""}`;
   modal(`<div class="det-head">${b.img ? `<img src="${b.img}" class="boss-big" alt="">` : ""}<div><h3 style="color:${col};margin:0">${esc(b.name)} · Lv${b.lv} (${elemName(b.element)})</h3>
     <div class="muted small">${esc(b.note || "")}</div></div></div>
-    <p class="small">Máu <b>${fmt(b.hp)}</b> · Công <b>${fmt(b.atk)}</b> · Phòng <b>${fmt(b.def)}</b>${b.effect ? ` · gây ${esc((X.effect[b.effect] || {}).name || b.effect)} ${b.effectChance}%` : ""}<br>Chiêu: ${esc(pats)}</p>
+    <p class="small">Máu <b>${fmt(b.hp)}</b> · Công <b>${fmt(b.atk * (S.bossDmgMul ?? 2))}</b> · Phòng <b>${fmt(b.def)}</b>${b.effect ? ` · gây ${esc((X.effect[b.effect] || {}).name || b.effect)} ${b.effectChance}%` : ""}<br>Chiêu: ${esc(pats)}<br><span class="bad">Dưới ${S.rageHpPct ?? 50}% máu boss nổi giận: ra chiêu dồn dập hơn và thêm ${S.rageExtraPatterns ?? 2} chiêu.</span></p>
     <p class="small muted">${reward}</p>
     <div class="ctrl">${P.ctrl === "B"
-      ? `<div><b>Chuột trái</b> bấm để đi, giữ để đi theo chuột</div><div><b>Space</b> lướt né về phía chuột</div>
+      ? `<div><b>Chuột trái</b> bấm để đi, giữ để đi theo chuột</div><div><b>Space</b> khinh công về phía chuột (tốn 20 thể lực)</div>
       ${keyLine("Giữ Q", "lmb")}${keyLine("W", "rmb")}${keyLine("E", "q")}<div><b>R</b> để dành cho chiêu sau này</div>`
-      : `<div><b>WASD</b> di chuyển</div><div><b>Space</b> lướt né</div>
+      : `<div><b>WASD</b> di chuyển</div><div><b>Space</b> khinh công (tốn 20 thể lực)</div>
       ${keyLine("Chuột trái", "lmb")}${keyLine("Chuột phải", "rmb")}${keyLine("Q", "q")}`}<div><b>Esc</b> tạm dừng / bỏ chạy / đổi điều khiển</div>
       ${hk("1")}${hk("2")}${hk("3")}</div>
-    <p class="small muted">Kiểu điều khiển: ${P.ctrl === "B" ? "B (chuột để đi)" : "A (WASD)"} · đổi ở nút Điều khiển hoặc trong màn tạm dừng.</p>
+    <p class="small muted">Kiểu điều khiển: ${P.ctrl === "B" ? "B (chuột để đi)" : "A (WASD)"} · đổi ở tab Tùy chỉnh hoặc trong màn tạm dừng.</p>
     <p>${note}</p>
     ${tk ? `<p class="small">Vào trận tốn 1 <b>${esc(tk.name)}</b> (đang có ${P.misc[tk.id] || 0}). Bỏ chạy không hoàn vé.</p>` : ""}
     ${why ? `<p class="bad">${esc(why)}</p>` : ""}
@@ -790,7 +910,7 @@ function startBattle(kind, b) {
         ${x.kept ? "" : `<small class="muted">(túi đầy, tự bán +${fmt(x.gold)})</small>`}</div>`).join("");
       const golds = r.gold_items.map(x => `<div class="rw" style="color:#ffd23f">${itemIcon(x.it, 28)} [Hoàng Kim] ${esc(x.it.name)}${x.kept ? "" : " (túi đầy, tự bán)"}</div>`).join("");
       const books = r.books.map(x => `<div class="rw gold">${iconBox(x.book.img, "book", "#f2c230", 28)} Bí kíp ${esc(x.book.name)}${x.kept ? "" : " (túi vật phẩm đầy, mất)"}</div>`).join("");
-      const misc = r.misc.map(x => `<div class="rw">${iconBox(x.misc.img, "misc", "#6a7090", 24)} ${esc(x.misc.name)} ×${x.qty}${x.kept ? "" : " (túi vật phẩm đầy)"}</div>`).join("");
+      const misc = r.misc.map(x => `<div class="rw">${iconBox(x.misc.img, "misc", miscColor(x.misc), 24)} ${esc(x.misc.name)} ×${x.qty}${x.kept ? "" : " (túi vật phẩm đầy)"}</div>`).join("");
       modal(`<h3 style="color:#f2c230">Đánh bại ${esc(b.name)}!</h3>
         <div class="rw">EXP <b>+${fmt(r.exp)}</b>${r.levels.length ? ` · <span class="lvup">Lên cấp ${r.levels[r.levels.length - 1]}!</span>` : ""}</div>
         <div class="rw">Vàng <b>+${fmt(r.gold)}</b></div>${golds}${books}${items}${misc}
@@ -881,36 +1001,60 @@ document.addEventListener("visibilitychange", () => {
   if (document.hidden && battle && battle.room) hideT = setTimeout(() => { if (battle && battle.room) battle._finish("flee"); }, 60000);
 });
 
-// ----- Điều khiển & đồ họa -----
-function ctrlModal() {
+// ----- Tùy chỉnh (bản 2.3): chọn nhân vật, điều khiển & đồ họa, tài khoản -----
+function renderOptions() {
   const opt = (name, val, cur, title, desc) => `<label class="opt ${cur === val ? "on" : ""}"><input type="radio" name="${name}" value="${val}" ${cur === val ? "checked" : ""}>
     <span><b>${title}</b><br><small class="muted">${desc}</small></span></label>`;
-  modal(`<h3>Điều khiển và đồ họa</h3>
-    <div class="panel-t">Kiểu điều khiển khi đánh boss, PK</div>
-    ${opt("ctrl", "A", P.ctrl, "Kiểu A · WASD", "WASD di chuyển · giữ chuột trái đánh · chuột phải chiêu phụ · Q buff · Space lướt")}
-    ${opt("ctrl", "B", P.ctrl, "Kiểu B · chuột để đi", "Chuột trái bấm để đi, giữ để đi theo chuột · giữ Q đánh · W chiêu phụ · E buff · R để dành · Space lướt về phía chuột")}
-    <div class="panel-t" style="margin-top:12px">Đồ họa</div>
-    ${opt("gfx", "cao", P.gfx, "Cao", "Hình nền map, tia lửa, chữ có viền")}
-    ${opt("gfx", "thap", P.gfx, "Thấp (máy yếu)", "Bỏ hình nền và hiệu ứng phụ cho mượt hơn")}
-    <label class="chk" style="display:block;margin-top:10px"><input type="checkbox" id="c-fps" ${P.showFps ? "checked" : ""}> Hiện FPS (số khung hình mỗi giây) khi đánh boss</label>
-    <p class="muted small">Trong trận bấm Esc rồi C (đổi điều khiển), G (đồ họa), P (FPS).</p>
-    <div class="m-act"><button class="btn" id="m-ok">Lưu</button><button class="btn ghost" onclick="closeModal()">Hủy</button></div>`);
-  document.querySelectorAll(".opt input").forEach(r => r.onchange = () => document.querySelectorAll(`.opt input[name=${r.name}]`).forEach(x => x.closest(".opt").classList.toggle("on", x.checked)));
-  $("m-ok").onclick = () => {
-    P.ctrl = document.querySelector("input[name=ctrl]:checked").value;
-    P.gfx = document.querySelector("input[name=gfx]:checked").value;
-    P.showFps = $("c-fps").checked;
-    closeModal(); markDirty(1000); toast(`Điều khiển kiểu ${P.ctrl} · đồ họa ${P.gfx === "cao" ? "Cao" : "Thấp"}`);
-  };
+  $("tab-opt").innerHTML = `<div class="opt-cols">
+    <div class="panel"><div class="panel-t">Nhân vật</div>
+      <p class="small">Đang chơi: <b>${esc(P.name)}</b> Lv${P.level} · ${esc((X.sect[P.sect] || {}).name || "")}</p>
+      <button class="btn" id="o-chars">Chọn nhân vật</button>
+      <p class="muted small">Thoát ra màn chọn 1 trong ${store.MAX_CHARS} nhân vật của tài khoản. Nhân vật này vẫn được tính treo máy khi vắng mặt (tối đa ${S.offlineHours ?? 24} giờ).</p></div>
+    <div class="panel"><div class="panel-t">Điều khiển & đồ họa</div>
+      <div class="muted small" style="margin-bottom:6px">Kiểu điều khiển khi đánh boss, PK</div>
+      ${opt("ctrl", "A", P.ctrl, "Kiểu A · WASD", "WASD di chuyển · giữ chuột trái đánh · chuột phải chiêu phụ · Q buff · Space khinh công")}
+      ${opt("ctrl", "B", P.ctrl, "Kiểu B · chuột để đi", "Chuột trái bấm để đi, giữ để đi theo chuột · giữ Q đánh · W chiêu phụ · E buff · R để dành · Space khinh công về phía chuột")}
+      <div class="muted small" style="margin:10px 0 6px">Đồ họa</div>
+      ${opt("gfx", "cao", P.gfx, "Cao", "Hình nền map, tia lửa, chữ có viền")}
+      ${opt("gfx", "thap", P.gfx, "Thấp (máy yếu)", "Bỏ hình nền và hiệu ứng phụ cho mượt hơn")}
+      <label class="chk" style="display:block;margin-top:10px"><input type="checkbox" id="o-fps" ${P.showFps ? "checked" : ""}> Hiện FPS khi đánh boss</label>
+      <p class="muted small">Trong trận bấm Esc rồi C (điều khiển), G (đồ họa), P (FPS).</p></div>
+    <div class="panel"><div class="panel-t">Tài khoản ${esc(user.username)}</div>
+      <div class="m-act" style="flex-direction:column;align-items:stretch">
+        <button class="btn ghost" id="o-pass" ${store.DEMO ? "disabled" : ""}>Đổi mật khẩu</button>
+        <button class="btn ghost" id="o-logout">Đăng xuất</button></div>
+      ${store.DEMO ? '<p class="muted small">Chế độ thử không có mật khẩu.</p>' : ""}</div></div>`;
+  document.querySelectorAll("#tab-opt .opt input").forEach(r => r.onchange = () => {
+    document.querySelectorAll(`#tab-opt .opt input[name=${r.name}]`).forEach(x => x.closest(".opt").classList.toggle("on", x.checked));
+    P[r.name] = r.value; markDirty(1000);
+    toast(r.name === "ctrl" ? `Điều khiển kiểu ${P.ctrl}` : `Đồ họa ${P.gfx === "cao" ? "Cao" : "Thấp"}`);
+  });
+  $("o-fps").onchange = e => { P.showFps = e.target.checked; markDirty(1000); };
+  $("o-chars").onclick = () => toCharSelect();
+  $("o-pass").onclick = () => passwordModal();
+  $("o-logout").onclick = async () => { await saveNow(); store.logout(); };
 }
-$("btn-ctrl").onclick = () => { if (P) ctrlModal(); };
 
 // ----- Chợ -----
-let mkFilter = "all", mkSort = "new", mkCache = [];
+let mkFilter = "all", mkSort = "new", mkCache = [], mkSlot = "";
+// Chợ hiện chỉ số (bản 2.3): dòng chính, dòng phụ, so với đồ đang mặc cùng ô
+function cmpEquip(it) {
+  const a = L.itemStats(it), b = L.itemStats(P.equip[it.slot]);
+  return [...new Set([...Object.keys(a), ...Object.keys(b)])].map(k => ({ k, d: (a[k] || 0) - (b[k] || 0) })).filter(x => Math.abs(x.d) >= 0.05);
+}
+const cmpHtml = (c, sep) => c.map(x => `<span class="${x.d > 0 ? "good" : "bad"}">${x.d > 0 ? "▲" : "▼"} ${esc(statName(x.k))} ${x.d > 0 ? "+" : ""}${statVal(x.k, x.d)}</span>`).join(sep);
+function mkItemLines(it) {
+  const main = it.gold ? ((X.goldItem[it.gold] || {}).stats || []).map(s => [s.stat, s.v]) : Object.keys(it.main).map(k => [k, it.main[k]]);
+  const line = arr => arr.map(([k, v]) => `${esc(statName(k))} +${statVal(k, v)}`).join(" · ");
+  const aff = (it.aff || []).map(a => [a.s, a.v]), cmp = cmpEquip(it);
+  const need = L.canEquipLevel(P, it) ? "" : `<span class="bad">Cần cấp ${it.lv - (S.maxOverLevel ?? 0)} để mặc</span> <span class="muted">(bạn đang cấp ${P.level})</span>`;
+  return `<div class="small">${line(main)}</div>${aff.length ? `<div class="muted small">${line(aff)}</div>` : ""}
+    <div class="small">${need || (cmp.length ? `So với ${P.equip[it.slot] ? "đồ đang mặc" : "ô đang trống"}: ${cmpHtml(cmp.slice(0, 6), " · ")}` : '<span class="muted">Giống đồ đang mặc</span>')}</div>`;
+}
 async function claimMarket() {
   if (!P || !user) return;
   try {
-    const list = await store.claimPayouts(user);
+    const list = await store.claimPayouts(user, CID);
     if (!list.length) return;
     const g = list.reduce((a, x) => a + (x.gold || 0), 0);
     P.gold += g;
@@ -921,7 +1065,7 @@ async function claimMarket() {
 }
 function listingIcon(x, size = 48) {
   if (x.kind === "item") return itemIcon(x.item, size);
-  if (x.kind === "misc") { const m = X.misc[x.ref] || {}; return iconBox(m.img, "misc", "#6a7090", size, x.qty > 1 ? `<b class="qty">${x.qty}</b>` : ""); }
+  if (x.kind === "misc") { const m = X.misc[x.ref] || {}; return iconBox(m.img, "misc", miscColor(m), size, x.qty > 1 ? `<b class="qty">${x.qty}</b>` : ""); }
   const b = X.bikip[x.ref] || {}; return iconBox(b.img, "book", "#f2c230", size, x.qty > 1 ? `<b class="qty">${x.qty}</b>` : "");
 }
 function listingSub(x) {
@@ -936,34 +1080,42 @@ async function renderMarket() {
   catch (e) { box.innerHTML = `<div class="panel wide"><div class="bad">Không tải được chợ: ${esc(e.code || e.message)}</div></div>`; return; }
   if (tab !== "market") return;
   claimMarket();
-  const mine = mkCache.filter(x => x.uid === user.uid);
-  let list = mkCache.filter(x => mkFilter === "all" || x.kind === mkFilter);
+  const mine = mkCache.filter(x => store.listingOf(x, user, CID));
+  let list = mkCache.filter(x => (mkFilter === "all" || x.kind === mkFilter) && (!mkSlot || (x.kind === "item" && x.item.slot === mkSlot)));
   list.sort(mkSort === "cheap" ? (a, b) => a.price - b.price : mkSort === "dear" ? (a, b) => b.price - a.price : (a, b) => b.createdAt - a.createdAt);
   const row = x => {
-    const own = x.uid === user.uid, col = x.kind === "item" ? rarityColor(x.item.r) : "#fff";
+    const own = store.listingOf(x, user, CID), col = x.kind === "item" ? rarityColor(x.item.r) : "#fff";
     return `<div class="mk-row">${listingIcon(x)}
-      <div class="mk-main"><div style="color:${col};font-weight:600">${esc(x.name)}</div><div class="muted small">${listingSub(x)}</div>
+      <div class="mk-main"><div style="color:${col};font-weight:600">${esc(x.name)} <span class="muted small" style="font-weight:400">${listingSub(x)}</span></div>
+      ${x.kind === "item" ? mkItemLines(x.item) : ""}
       <div class="small">Người bán: ${esc(x.seller || "?")}${own ? ' <span class="good">(của bạn)</span>' : ""}</div></div>
       <div class="mk-price">${fmt(x.price)}<small> vàng</small></div>
       ${own ? `<button class="btn ghost small-btn" data-wd="${x.id}">Rút về</button>` : `<button class="btn small-btn" data-mkv="${x.id}">Xem · Mua</button>`}</div>`;
   };
   const chip = (v, t) => `<button class="chip ${mkFilter === v ? "on" : ""}" data-mkf="${v}">${t}</button>`;
+  const slotChip = (v, t) => `<button class="chip ${mkSlot === v ? "on" : ""}" data-mks2="${v}">${t}</button>`;
   const sch = (v, t) => `<button class="chip ${mkSort === v ? "on" : ""}" data-mks="${v}">${t}</button>`;
   box.innerHTML = `<div class="panel wide"><div class="sk-head"><span class="panel-t">Chợ · ${mkCache.length} món đang rao</span>
       <span>Vàng: <b class="gold">${fmt(P.gold)}</b> · Hàng của bạn: <b>${mine.length}/${L.MARKET_MAX}</b> <button class="btn ghost small-btn" id="mk-ref">Tải lại</button></span></div>
     <p class="muted small">Rao bán: vào Túi đồ, bấm món muốn bán, chọn "Rao bán ở Chợ" rồi đặt giá. Không thu thuế, không giới hạn thời gian. Món đang rao rời khỏi túi; rút về được khi túi còn chỗ. Người bán đang offline vẫn nhận vàng ở lần vào game sau.${store.DEMO ? ' <span class="bad">Chế độ thử: chỉ thấy hàng của các tài khoản trên cùng trình duyệt này.</span>' : ""}</p>
     <div class="chips">${chip("all", "Tất cả")}${chip("item", "Trang bị")}${chip("misc", "Vật phẩm")}${chip("book", "Bí kíp")}
       <span class="muted small" style="margin:0 4px 0 12px">Xếp:</span>${sch("new", "Mới nhất")}${sch("cheap", "Rẻ trước")}${sch("dear", "Đắt trước")}</div>
+    <div class="chips"><span class="muted small" style="margin-right:4px">Ô:</span>${slotChip("", "Mọi ô")}${X.slotOrder.map(k => slotChip(k, esc((X.slot[k] || {}).name || k))).join("")}</div>
     <div class="mk-list">${list.map(row).join("") || '<div class="muted" style="padding:12px 0">Chưa có món nào.</div>'}</div></div>`;
   $("mk-ref").onclick = renderMarket;
   box.querySelectorAll("[data-mkf]").forEach(b => b.onclick = () => { mkFilter = b.dataset.mkf; renderMarket(); });
   box.querySelectorAll("[data-mks]").forEach(b => b.onclick = () => { mkSort = b.dataset.mks; renderMarket(); });
+  box.querySelectorAll("[data-mks2]").forEach(b => b.onclick = () => { mkSlot = b.dataset.mks2; if (mkSlot && mkFilter !== "all" && mkFilter !== "item") mkFilter = "all"; renderMarket(); });
   box.querySelectorAll("[data-wd]").forEach(b => b.onclick = () => withdraw(b.dataset.wd));
   box.querySelectorAll("[data-mkv]").forEach(b => b.onclick = () => buyModal(mkCache.find(x => x.id === b.dataset.mkv)));
 }
 function buyModal(x) {
   if (!x) return;
-  const body = x.kind === "item" ? itemDetailHtml(x.item)
+  const body = x.kind === "item" ? itemDetailHtml(x.item) + (() => {
+      const c = cmpEquip(x.item);
+      return `<div class="det-sub">So với đồ đang mặc${P.equip[x.item.slot] ? "" : " (đang trống)"}</div>${c.length ? `<div class="det-stats">${cmpHtml(c, "<br>")}</div>` : '<div class="muted small">Giống đồ đang mặc</div>'}
+        ${L.canEquipLevel(P, x.item) ? "" : `<div class="bad small">Cần cấp ${x.item.lv - (S.maxOverLevel ?? 0)} để mặc.</div>`}`;
+    })()
     : `<div class="det-head">${listingIcon(x, 56)}<div><div style="font-weight:600;color:#fff">${esc(x.name)} ×${x.qty}</div><div class="muted small">${listingSub(x)}</div></div></div>
        <div class="det-stats">${esc((x.kind === "misc" ? X.misc[x.ref] : X.bikip[x.ref] || {}).desc || "")}</div>`;
   const space = L.marketSpaceFor(P, x), poor = P.gold < x.price;
@@ -990,7 +1142,7 @@ async function withdraw(id) {
   const space = L.marketSpaceFor(P, x);
   if (space) return toast(space + " Dọn túi rồi rút về.");
   try {
-    const got = await store.withdrawListing(user, id);
+    const got = await store.withdrawListing(user, CID, id);
     if (!got) { toast("Món này đã có người mua."); claimMarket(); return renderMarket(); }
     L.giveFromMarket(P, got); await saveNow();
     toast(`Đã rút ${got.name} về túi.`); renderHeader(); renderMarket();
@@ -1001,7 +1153,7 @@ function listModal(kind, id, name, maxQty) {
     <form id="mk-form" class="form">
       ${maxQty > 1 ? `<label>Số lượng (tối đa ${maxQty})<input type="number" id="mk-qty" min="1" max="${maxQty}" value="${maxQty}"></label>` : ""}
       <label>Giá bán (vàng)<input type="number" id="mk-price" min="1" step="1" required></label>
-      <div class="muted small">Không thu thuế. Món rời khỏi túi tới khi có người mua hoặc bạn rút về. Mỗi người rao tối đa ${L.MARKET_MAX} món.</div>
+      <div class="muted small">Không thu thuế. Món rời khỏi túi tới khi có người mua hoặc bạn rút về. Mỗi nhân vật rao tối đa ${L.MARKET_MAX} món.</div>
       <div class="bad" id="mk-err"></div>
       <div class="m-act"><button class="btn" type="submit">Rao bán</button><button class="btn ghost" type="button" onclick="closeModal()">Hủy</button></div>
     </form>`);
@@ -1011,11 +1163,11 @@ function listModal(kind, id, name, maxQty) {
     const btn = e.submitter || $("mk-form").querySelector("button[type=submit]"); btn.disabled = true;
     try {
       const all = await store.listMarket();
-      if (all.filter(x => x.uid === user.uid).length >= L.MARKET_MAX) { $("mk-err").textContent = `Bạn đang rao đủ ${L.MARKET_MAX} món. Rút bớt rồi rao tiếp.`; btn.disabled = false; return; }
+      if (all.filter(x => store.listingOf(x, user, CID)).length >= L.MARKET_MAX) { $("mk-err").textContent = `Bạn đang rao đủ ${L.MARKET_MAX} món. Rút bớt rồi rao tiếp.`; btn.disabled = false; return; }
       const qty = Math.min(maxQty, Number(($("mk-qty") || {}).value) || 1);
       const t = L.takeForMarket(P, kind, id, qty, $("mk-price").value);
       if (t.err) { $("mk-err").textContent = t.err; btn.disabled = false; return; }
-      try { await store.addListing(user, P.name, t.listing); }
+      try { await store.addListing(user, CID, P.name, t.listing); }
       catch (err) { L.giveFromMarket(P, t.listing); throw err; }
       await saveNow();
       closeModal(); sel = null;

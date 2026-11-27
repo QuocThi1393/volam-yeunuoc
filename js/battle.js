@@ -53,11 +53,14 @@ export class Battle {
       x: 650, y: midY, r: 16, hit: 7,
       hp: this.st.hp, mp: this.st.mp, aim: 0, fireCd: 0,
       dashT: 0, dashVx: 0, dashVy: 0, inv: 0, holy: 0, immune: 0,
-      cd: { rmb: 0, q: 0, dash: 0 }, pot: {}, fx: {}, revived: false
+      cd: { rmb: 0, q: 0, dash: 0 }, pot: {}, fx: {}, revived: false,
+      sta: S.staminaMax ?? 100                                        // thể lực cho Khinh công
     };
+    this.bulletMul = ctx.kind === "room" ? 1 : (S.bossBulletMul ?? 2);   // đạn boss bay nhanh gấp đôi
     const bhp = Math.round(b.hp * pm.hp);
     this.B = {
-      name: b.name, lv: b.lv, element: b.element, hp: bhp, maxHp: bhp, atk: b.atk * pm.dmg, def: b.def,
+      name: b.name, lv: b.lv, element: b.element, hp: bhp, maxHp: bhp, def: b.def,
+      atk: b.atk * pm.dmg * (ctx.kind === "room" ? 1 : (S.bossDmgMul ?? 2)),     // bản 2.3: boss đánh đau gấp đôi
       patterns: (b.patterns && b.patterns.length) ? b.patterns : ["ring", "fan"], effect: b.effect || "", effectChance: b.effectChance || 0,
       x: 1350, y: midY, r: 40, tx: 1350, ty: midY, moveT: 0, atkT: 1.5, pi: 0, sub: [], flash: 0,
       charge: 0, cvx: 0, cvy: 0, fx: {}, ccImm: 0, pull: 0, slowPct: 40
@@ -307,12 +310,15 @@ export class Battle {
   _dash() {
     const pl = this.pl;
     if (pl.cd.dash > 0 || this.over || !this._can("move")) return;
+    const cost = S.dashStamina ?? 20;
+    if (pl.sta < cost) { if (this.time - (this.staNoteT || -9) > 1) { this.staNoteT = this.time; this._note("Thiếu thể lực", "#f6efc8"); } return; }
+    pl.sta -= cost;
     let dx = 0, dy = 0;
     if (!this.modeB) { dx = (this.keys.d ? 1 : 0) - (this.keys.a ? 1 : 0); dy = (this.keys.s ? 1 : 0) - (this.keys.w ? 1 : 0); }
     if (!dx && !dy) { dx = Math.cos(pl.aim); dy = Math.sin(pl.aim); }
     const l = Math.hypot(dx, dy);
     pl.dashVx = dx / l * 950; pl.dashVy = dy / l * 950;
-    pl.dashT = 0.16; pl.inv = Math.max(pl.inv, 0.28); pl.cd.dash = 1.2;
+    pl.dashT = 0.16; pl.inv = Math.max(pl.inv, 0.28); pl.cd.dash = S.dashCd ?? 1.2;
     this.strike = null;
     if (this.modeB) this.moveTo = null;
   }
@@ -699,8 +705,19 @@ export class Battle {
   }
 
   // ---------- Boss bắn ----------
+  // dưới 50% máu: nổi giận, thêm chiêu boss chưa có (chọn cố định theo tên boss)
+  _enrage() {
+    const B = this.B; B.rage = true;
+    const all = (GD.patterns || []).filter(x => x.done !== false).map(x => x.id).filter(id => !B.patterns.includes(id));
+    let h = 0; for (const ch of B.name) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+    const extra = [];
+    for (let i = 0; i < (S.rageExtraPatterns ?? 2) && all.length; i++) extra.push(all.splice((h + i * 7) % all.length, 1)[0]);
+    B.patterns = [...B.patterns, ...extra];
+    this.texts.push({ x: B.x, y: B.y - B.r - 40, t: 0, text: "NỔI GIẬN!", color: "#ff3b30", size: 26 });
+  }
   _shoot(x, y, ang, speed, o = {}) {
     if (this.eb.length > 750) return;
+    speed *= this.bulletMul;
     this.eb.push({ x, y, vx: Math.cos(ang) * speed, vy: Math.sin(ang) * speed, r: o.r || 7,
       mul: o.mul || 1, big: o.big || 0, age: 0, needle: !!o.needle });
   }
@@ -717,7 +734,8 @@ export class Battle {
 
   _bossAttack() {
     const B = this.B, pl = this.pl;
-    const p2 = B.hp < B.maxHp * 0.5;
+    const p2 = B.hp < B.maxHp * (S.rageHpPct ?? 50) / 100;
+    if (p2 && !B.rage) this._enrage();
     const toP = Math.atan2(pl.y - B.y, pl.x - B.x);
     const name = B.patterns[B.pi % B.patterns.length];
     B.pi++;
@@ -834,7 +852,7 @@ export class Battle {
         for (let i = 0; i < n; i++) this._shoot(B.x, B.y, off + i / n * TAU, 210);
       }
     }
-    let t = p2 ? 1.6 : 2.3;
+    let t = 2.3 * (p2 ? (S.rageGapMul ?? 0.5) : (S.bossGapMul ?? 0.8));     // bản 2.3: ra chiêu dồn hơn, nổi giận còn dồn hơn nữa
     if (B.fx.slow > 0) t *= 1.4;
     if (B.fx.freeze > 0) t *= 1.5;
     B.atkT = t;
@@ -858,6 +876,7 @@ export class Battle {
 
     // hồi chiêu, hiệu ứng
     for (const k in pl.cd) pl.cd[k] = Math.max(0, pl.cd[k] - dt);
+    pl.sta = Math.min(S.staminaMax ?? 100, pl.sta + (S.staminaRegen ?? 3) * dt);
     for (const k in pl.pot) pl.pot[k] = Math.max(0, pl.pot[k] - dt);
     pl.inv = Math.max(0, pl.inv - dt); pl.holy = Math.max(0, pl.holy - dt); pl.immune = Math.max(0, pl.immune - dt);
     this.vkShield = Math.max(0, this.vkShield - dt); this.dashStrikeCd = Math.max(0, this.dashStrikeCd - dt);
@@ -1287,8 +1306,8 @@ export class Battle {
       c.font = "18px sans-serif"; c.fillStyle = "#f2c230";
       c.fillText(`C: điều khiển kiểu ${this.modeB ? "B (chuột để đi)" : "A (WASD)"}   ·   G: đồ họa ${this.low ? "Thấp" : "Cao"}   ·   P: FPS ${this.p.showFps ? "bật" : "tắt"}`, W / 2, H / 2 + 25);
       c.font = "15px sans-serif"; c.fillStyle = "#999";
-      c.fillText(this.modeB ? "Kiểu B: chuột trái bấm để đi, giữ để đi theo chuột · giữ Q đánh · W chiêu phụ · E buff · Space lướt về phía chuột"
-        : "Kiểu A: WASD đi · giữ chuột trái đánh · chuột phải chiêu phụ · Q buff · Space lướt", W / 2, H / 2 + 58);
+      c.fillText(this.modeB ? "Kiểu B: chuột trái bấm để đi, giữ để đi theo chuột · giữ Q đánh · W chiêu phụ · E buff · Space khinh công về phía chuột"
+        : "Kiểu A: WASD đi · giữ chuột trái đánh · chuột phải chiêu phụ · Q buff · Space khinh công", W / 2, H / 2 + 58);
     }
     if (this.over && this.over !== "flee") {
       c.fillStyle = `rgba(0,0,0,${Math.min(0.6, this.overT * 0.6)})`; c.fillRect(0, 0, W, H);
@@ -1433,8 +1452,8 @@ export class Battle {
     if (this.room && !ready(this.imgBoss)) return this._drawDummy(c, B);
     const col = elemColor(B.element);
     c.fillStyle = "rgba(0,0,0,0.35)"; c.beginPath(); c.ellipse(B.x, B.y + B.r - 2, B.r, 9, 0, 0, TAU); c.fill();
-    if (B.hp < B.maxHp * 0.5 && !this.low) {
-      c.strokeStyle = col; c.globalAlpha = 0.3 + 0.2 * Math.sin(this.time * 6); c.lineWidth = 6;
+    if (B.rage || (B.hp < B.maxHp * 0.5 && !this.low)) {
+      c.strokeStyle = B.rage ? "#ff3b30" : col; c.globalAlpha = (B.rage ? 0.6 : 0.3) + 0.2 * Math.sin(this.time * 6); c.lineWidth = 6;
       c.beginPath(); c.arc(B.x, B.y, B.r + 12, 0, TAU); c.stroke(); c.globalAlpha = 1;
     }
     if (ready(this.imgBoss)) {
@@ -1489,6 +1508,7 @@ export class Battle {
     c.fillText(`${p.name} · Lv${p.level} · ${(X.sect[p.sect] || {}).name || ""}`, 30, 26);
     this._bar(c, 30, 36, 300, 16, pl.hp, st.hp, "#d94040", "#3d1d1d");
     this._bar(c, 30, 57, 300, 11, pl.mp, st.mp, "#3f86e0", "#1d2a3d");
+    this._bar(c, 30, 71, 300, 6, pl.sta, S.staminaMax ?? 100, "#f6efc8", "#3a3828");     // thể lực
     c.font = "13px sans-serif"; c.fillStyle = "#fff";
     c.fillText(`${fmt(pl.hp)} / ${fmt(st.hp)}`, 36, 49);
     let tx = 340;
@@ -1515,6 +1535,7 @@ export class Battle {
     c.fillText(`${fmt(B.hp)} / ${fmt(B.maxHp)}`, 1244, 49);
     let bx = 1250; c.textAlign = "right";
     for (const [t, col] of this._fxTags(B.fx).reverse()) { c.fillStyle = col; c.fillText(t, bx, 68); bx -= c.measureText(t).width + 12; }
+    if (B.rage) { c.textAlign = "right"; c.font = "700 15px sans-serif"; c.fillStyle = "#ff5a4a"; c.fillText("NỔI GIẬN!", 1250, 86); }
     if (p.showFps) {
       c.textAlign = "left"; c.font = "600 14px sans-serif";
       c.fillStyle = this.fps >= 50 ? "#6fd06f" : this.fps >= 30 ? "#ffd23f" : "#ff7b7b";
@@ -1534,7 +1555,7 @@ export class Battle {
         cd: slot === "lmb" ? 0 : pl.cd[slot], max: sc ? sc.cd || 1 : 1, mp: sc ? sc.mp : 0, img: k.s.img });
     }
     if (B2) slots.push({ key: "R", name: "Sắp có", off: "", empty: true });
-    slots.push({ key: "Space", name: "Lướt né", cd: pl.cd.dash, max: 1.2 });
+    slots.push({ key: "Space", name: "Khinh công", cd: pl.cd.dash, max: S.dashCd ?? 1.2, off: pl.sta < (S.dashStamina ?? 20) ? "Thiếu thể lực" : "" });
     for (const key of ["1", "2", "3"]) {
       const m = X.misc[p.hot[key]];
       slots.push({ key, name: m ? `${m.name} ×${p.misc[m.id] || 0}` : "—", cd: m ? pl.pot[m.id] || 0 : 0, max: m ? m.cd || 1 : 1,

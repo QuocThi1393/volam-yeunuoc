@@ -35,13 +35,57 @@ export function newPlayer(name, gender, sect) {
     const tpl = GD.items.filter(t => t.slot === "weapon" && t.weaponType === wt).sort((a, b) => a.lvFrom - b.lvFrom)[0];
     if (tpl && !p.bag.some(it => it.wt === wt)) p.bag.push(makeItem(tpl, 0, tpl.lvFrom));
   });
-  // quà khởi đầu: vài bình thuốc
-  const hp = miscByKind("hp")[0], mp = miscByKind("mp")[0], cure = miscByKind("cure")[0];
-  if (hp) p.misc[hp.id] = 10;
-  if (mp) p.misc[mp.id] = 10;
+  // quà khởi đầu: Lễ bao tân thủ (thuốc, ngọc, vũ khí Huyền thoại tự chọn) — bản 2.3
+  const cure = miscByKind("cure")[0];
+  giveNewbieBox(p);
   defaultHotkeys(p);
   if (cure) p.hot[3] = cure.id;
   return p;
+}
+// tặng Lễ bao tân thủ 1 lần cho mỗi nhân vật (cả nhân vật tạo trước bản 2.3)
+export function giveNewbieBox(p) {
+  if (p.newbieGiven) return false;
+  const box = miscByKind("newbie")[0];
+  if (!box) return false;
+  p.misc[box.id] = (p.misc[box.id] || 0) + 1;
+  p.newbieGiven = true;
+  return true;
+}
+// Mở Lễ bao tân thủ: wt = loại vũ khí chọn (1 trong 2 vũ khí của phái)
+export function openNewbieBox(p, wt) {
+  const box = miscByKind("newbie")[0];
+  if (!box || !(p.misc[box.id] > 0)) return { err: "Không có Lễ bao tân thủ." };
+  const lv = S.newbieWeaponLv ?? 10, rar = Math.min(X.rarity.length - 1, S.newbieWeaponRar ?? 3);
+  const tpl = GD.items.filter(t => t.slot === "weapon" && t.weaponType === wt && t.lvFrom <= lv).sort((a, b) => b.lvFrom - a.lvFrom)[0];
+  if (!tpl) return { err: "Không tìm thấy vũ khí loại này." };
+  if (p.bag.length >= (S.invSize || 50)) return { err: "Túi trang bị đã đầy." };
+  const got = [];
+  const add = (kind, qty) => { const m = miscByKind(kind)[0]; if (m && qty > 0) { p.misc[m.id] = (p.misc[m.id] || 0) + qty; got.push(`${m.name} ×${qty}`); } };
+  useMisc(p, box.id);
+  add("skillup", S.newbieGems ?? 10); add("hp", S.newbieHp ?? 10); add("mp", S.newbieMp ?? 10);
+  const it = makeItem(tpl, rar, lv);
+  p.bag.push(it);
+  return { item: it, got };
+}
+// Thiên Sơn Tuyết Liên: lên ngay 1 cấp, giữ % kinh nghiệm, mỗi loại tối đa useLimit bông mỗi nhân vật
+export function lotusCheck(p, m) {
+  const used = (p.lotus || {})[m.id] || 0, lim = m.useLimit || 3, maxLv = S.maxLevel || 99;
+  if (used >= lim) return `Mỗi nhân vật chỉ dùng tối đa ${lim} bông loại này.`;
+  if (p.level >= maxLv) return "Đã đạt cấp tối đa.";
+  if (p.level >= (m.useBelow || 100)) return `Chỉ dùng được khi dưới cấp ${m.useBelow}.`;
+  return "";
+}
+export function useLotus(p, id) {
+  const m = X.misc[id];
+  if (!m || m.kind !== "levelup") return { err: "Không dùng được." };
+  if (!(p.misc[id] > 0)) return { err: "Không có vật phẩm này." };
+  const e = lotusCheck(p, m); if (e) return { err: e };
+  const ratio = Math.min(0.999, Math.max(0, p.exp / expToNext(p.level)));
+  useMisc(p, id);
+  p.level++; p.skillPoints++;
+  p.exp = Math.floor(ratio * expToNext(p.level));
+  p.lotus = { ...(p.lotus || {}), [id]: ((p.lotus || {})[id] || 0) + 1 };
+  return { level: p.level };
 }
 
 export function defaultHotkeys(p) {
@@ -68,6 +112,8 @@ export function normalizePlayer(p) {
   p.ctrl = p.ctrl === "B" ? "B" : "A";
   p.gfx = p.gfx === "thap" ? "thap" : "cao";
   p.showFps = !!p.showFps;
+  p.lotus ||= {};
+  giveNewbieBox(p);
   defaultHotkeys(p);
   return p;
 }
@@ -177,7 +223,7 @@ export function sellPrice(it) {
   return Math.round((it.lv * 3 + 5) * Math.pow(it.r + 1, 2));
 }
 
-export function canEquipLevel(p, it) { return it.lv <= p.level + (S.maxOverLevel ?? 5); }
+export function canEquipLevel(p, it) { return it.lv <= p.level + (S.maxOverLevel ?? 0); }
 
 export function addItem(p, it, logs) {
   const full = p.bag.length >= (S.invSize || 50);
@@ -223,7 +269,7 @@ export function equipItem(p, id) {
   const i = p.bag.findIndex(x => x.id === id);
   if (i < 0) return "Không tìm thấy món đồ.";
   const it = p.bag[i];
-  if (!canEquipLevel(p, it)) return `Cần cấp ${it.lv - (S.maxOverLevel ?? 5)} để mặc.`;
+  if (!canEquipLevel(p, it)) return `Cần cấp ${it.lv - (S.maxOverLevel ?? 0)} để mặc.`;
   const old = p.equip[it.slot];
   p.bag.splice(i, 1);
   if (old) p.bag.push(old);
@@ -470,17 +516,29 @@ export function levelPenalty(pLv, mLv) {
   const d = pLv - mLv;
   return d <= 3 ? 1 : Math.max(0.1, 1 - 0.15 * (d - 3));
 }
+// Bản 2.3: quái cao cấp hơn mình thì kinh nghiệm thêm overLevelExpPer % mỗi cấp (tối đa overLevelExpMax %)
+export function overLevelBonus(pLv, mLv) {
+  const d = mLv - pLv;
+  return d > 0 ? 1 + Math.min(S.overLevelExpMax ?? 200, d * (S.overLevelExpPer ?? 10)) / 100 : 1;
+}
+const mobKinds = map => X.monOf[map.id] || [{ name: "Thổ phỉ", element: map.element, hpMul: 100, atkMul: 100, expMul: 100 }];
+// Chỉ số 1 con quái: hệ số máu / sát thương / kinh nghiệm theo từng map (editor → Map), vàng = giá trị khi có rơi
+export function mobStats(p, map, k, lv) {
+  const b = monsterBase(lv), pen = levelPenalty(p.level, lv), over = overLevelBonus(p.level, lv);
+  const hp = Math.round(b.hp * (k.hpMul ?? 100) / 100 * (map.mobHp ?? 100) / 100);
+  return {
+    id: k.id, name: k.name, img: k.img || "", lv, element: k.element || map.element, hp, maxHp: hp,
+    atk: b.atk * (k.atkMul ?? 100) / 100 * (map.mobAtk ?? 100) / 100, def: b.def,
+    exp: Math.round(b.exp * (k.expMul || 100) / 100 * (map.mobExp ?? 100) / 100 * pen * over),
+    gold: Math.round(b.gold * (S.mobGoldMul ?? 50) / 100 * pen), pen, over
+  };
+}
 export function spawnMonster(p) {
   const map = getMap(p.mapId);
   const lv = clamp(randInt(p.level - 2, p.level + 1), map.lvFrom, map.lvTo);
-  const kinds = X.monOf[map.id] || [{ name: "Thổ phỉ", element: map.element, hpMul: 100, atkMul: 100, expMul: 100 }];
-  const k = pick(kinds), b = monsterBase(lv), pen = levelPenalty(p.level, lv);
-  const hp = Math.round(b.hp * k.hpMul / 100);
-  return {
-    id: k.id, name: k.name, img: k.img || "", lv, element: k.element || map.element, hp, maxHp: hp,
-    atk: b.atk * k.atkMul / 100, def: b.def,
-    exp: Math.round(b.exp * (k.expMul || 100) / 100 * pen), gold: Math.round(b.gold * pen), pen
-  };
+  const m = mobStats(p, map, pick(mobKinds(map)), lv);
+  if (!(Math.random() * 100 < (S.mobGoldChance ?? 70))) m.gold = 0;      // không phải con nào cũng rơi vàng
+  return m;
 }
 
 // Skill chuột trái đang dùng được (theo vũ khí). null = đánh tay không
@@ -503,7 +561,7 @@ export function idleRound(p, state, now) {
   if (!state.mon) {
     state.mon = spawnMonster(p);
     const m = state.mon;
-    logs.push({ t: `Gặp ${m.name} Lv${m.lv}${m.pen < 1 ? ` (quái thấp cấp, kinh nghiệm còn ${Math.round(m.pen * 100)}%)` : ""}`, c: "dim" });
+    logs.push({ t: `Gặp ${m.name} Lv${m.lv}${m.pen < 1 ? ` (quái thấp cấp, kinh nghiệm còn ${Math.round(m.pen * 100)}%)` : m.over > 1 ? ` (quái cao cấp hơn, kinh nghiệm +${Math.round((m.over - 1) * 100)}%)` : ""}`, c: "dim" });
     return { logs, changed: false };
   }
   const mon = state.mon, sc = idleAttack(p, st);
@@ -526,7 +584,7 @@ export function idleRound(p, state, now) {
   if (mon.hp <= 0) {
     const ups = gainExp(p, mon.exp);
     p.gold += mon.gold;
-    logs.push({ t: `Tiêu diệt ${mon.name} · +${fmt(mon.exp)} EXP · +${fmt(mon.gold)} vàng`, c: "good" });
+    logs.push({ t: `Tiêu diệt ${mon.name} · +${fmt(mon.exp)} EXP${mon.gold ? ` · +${fmt(mon.gold)} vàng` : ""}`, c: "good" });
     if (Math.random() * 100 < (S.mobDropChance ?? 12)) {
       const it = genItem(mon.lv, "mob");
       if (it) {
@@ -558,22 +616,44 @@ export function idleRound(p, state, now) {
   return { logs, changed: false };
 }
 
-// Treo máy khi vắng mặt: ước tính theo tốc độ hạ quái trung bình
+// Treo máy khi vắng mặt (bản 2.3): tính đúng như lúc mở web — từng loại quái, từng cấp quái có thể gặp,
+// số lượt đánh, đòn quái đánh lại, chết thì nghỉ 8 giây
 // noCap = true: đang mở web (tab bị trình duyệt cho chạy chậm), không giới hạn giờ
+export function idleRates(p) {
+  const map = getMap(p.mapId), st = calcStats(p), sc = idleAttack(p, st), R = IDLE_TICK / 1000;
+  const hits = Math.max(1, Math.round(sc.aspd * IDLE_TICK / 1000));
+  const crit = 1 + Math.min(75, (st.crit || 0) + (sc.crit || 0)) / 100 * (critMul(st, sc) - 1);
+  const regen = st.hp * 0.03 + (st.hpRegenSec || 0) * R, dodge = Math.min(60, st.dodge || 0) / 100;
+  let T = 0, E = 0, G = 0, K = 0, D = 0;
+  for (let l = p.level - 2; l <= p.level + 1; l++) {
+    const lv = clamp(l, map.lvFrom, map.lvTo);
+    for (const k of mobKinds(map)) {
+      const m = mobStats(p, map, k, lv);
+      const perRound = rawSkillDamage(st, sc, m.element, false) * mitigate(m.def, p.level) * hits * st.idleHit * crit;
+      const rounds = Math.max(1, Math.ceil(m.hp / Math.max(1, perRound)));
+      const hit = damageTaken(m.atk, m.element, m.lv, st) * (1 - dodge);
+      const fight = Math.max(0, (hit - regen) * (rounds - 1));          // máu mất trong 1 trận
+      const tKill = (rounds + 1) * R;                                     // 1 lượt gặp quái + các lượt đánh
+      if (fight >= st.hp) {                                               // đánh không lại: chết rồi nghỉ, không có gì
+        T += (Math.ceil(st.hp / Math.max(1, hit - regen)) + 1) * R + 8.4; D++; continue;
+      }
+      const net = fight - st.hp * 0.15;                                   // hạ xong hồi 15% máu
+      const perLife = net > 0 ? Math.max(1, (st.hp - fight) / net + 1) : Infinity;
+      const extra = perLife === Infinity ? 0 : (tKill / 2 + 8.4) / perLife; // trận chết dở + nghỉ, chia đều cho các con
+      T += tKill + extra; E += m.exp; G += m.gold * (S.mobGoldChance ?? 70) / 100; K++;
+      if (perLife !== Infinity) D += 1 / perLife;
+    }
+  }
+  return { perSec: { kills: K / T, exp: E / T, gold: G / T, deaths: D / T }, map };
+}
 export function offlineGains(p, seconds, noCap = false) {
   if (!noCap) seconds = Math.min(seconds, (S.offlineHours ?? 24) * 3600);
-  const map = getMap(p.mapId), st = calcStats(p), sc = idleAttack(p, st);
-  const lv = clamp(p.level, map.lvFrom, map.lvTo), b = monsterBase(lv), pen = levelPenalty(p.level, lv);
-  const per = rawSkillDamage(st, sc, map.element, false) * mitigate(b.def, p.level) * st.idleHit
-    * (1 + Math.min(75, st.crit || 0) / 100 * (critMul(st, sc) - 1));
-  const dps = per * Math.max(1, Math.round(sc.aspd * IDLE_TICK / 1000)) / (IDLE_TICK / 1000);
-  const t = b.hp / Math.max(1, dps) + IDLE_TICK / 1000 * 2;
-  const taken = damageTaken(b.atk, map.element, lv, st) * (b.hp / Math.max(1, dps)) / (IDLE_TICK / 1000);
-  const eff = taken > st.hp * 0.9 ? 0.4 : 1;
-  const kills = Math.floor(seconds / t * eff);
-  const res = { seconds, kills, exp: 0, gold: 0, levels: [], kept: [], sold: 0, soldGold: 0 };
+  const { perSec, map } = idleRates(p);
+  const lv = clamp(p.level, map.lvFrom, map.lvTo);
+  const kills = Math.floor(seconds * perSec.kills);
+  const res = { seconds, kills, exp: 0, gold: 0, levels: [], kept: [], sold: 0, soldGold: 0, deaths: Math.round(seconds * perSec.deaths) };
   if (kills <= 0) return res;
-  res.exp = Math.round(kills * b.exp * pen); res.gold = Math.round(kills * b.gold * pen);
+  res.exp = Math.round(seconds * perSec.exp); res.gold = Math.round(seconds * perSec.gold);
   p.gold += res.gold;
   res.levels = gainExp(p, res.exp);
   const drops = Math.min(300, Math.round(kills * (S.mobDropChance ?? 12) / 100));
@@ -599,6 +679,7 @@ export function ticketFor(b) { return miscByKind("ticket").find(t => t.bossTier 
 
 function dropMisc(p, source, out) {
   (GD.misc || []).forEach(m => {
+    if (m.kind === "levelup" || m.kind === "newbie") return;     // Tuyết Liên rơi theo cách riêng, lễ bao không rơi
     if (!(m.sources || []).includes(source) || !(Math.random() * 100 < (m.dropChance || 0))) return;
     const q = Math.max(1, m.dropQty || 1);
     const ok = addMisc(p, m.id, q);
@@ -621,10 +702,27 @@ export function bossRewards(p, kind, b) {
   res.levels = gainExp(p, res.exp);
   const source = kind === "gold" ? "gold" : "boss";
   const n = (b.drops || 2) + (Math.random() * 100 < (b.dropExtra || 0) ? 1 : 0);
+  // boss map: mỗi món có tỉ lệ thành đồ Hoàng Kim theo trọng số "Hoàng Kim" ở mục Độ hiếm (bản 2.3)
+  const gr = X.rarity[X.goldRar] || {}, wsum = X.rarity.reduce((a, r) => a + Math.max(0, r.wBoss || 0), 0);
+  const goldPct = kind === "map" && wsum > 0 ? Math.max(0, gr.wBoss || 0) / wsum : 0;
+  const goldList = (GD.goldItems || []).filter(g => g.lv <= Math.max(50, lv));
   for (let i = 0; i < n; i++) {
+    if (goldPct && goldList.length && Math.random() < goldPct) {
+      const it = makeGoldItem(pick(goldList)), full = p.bag.length >= (S.invSize || 50);
+      if (!full) p.bag.push(it); else p.gold += sellPrice(it);
+      res.gold_items.push({ it, kept: !full });
+      continue;
+    }
     const it = genItem(lv, source); if (!it) continue;
     const r = addItem(p, it);
     res.items.push({ it, kept: r.kept, gold: r.gold });
+  }
+  // Thiên Sơn Tuyết Liên (bản 2.3): boss map rơi loại hợp cấp boss; boss Hoàng Kim rơi kèm theo loại boss
+  const lotus = miscByKind("levelup");
+  const lm = kind === "gold" ? lotus.find(x => x.bossTier === b.tier)
+    : lotus.filter(x => (x.useBelow || 100) > lv).sort((x, y) => (x.useBelow || 100) - (y.useBelow || 100))[0];
+  if (lm && Math.random() * 100 < (kind === "gold" ? (S.lotusGoldChance ?? 28) : (lm.dropChance ?? 5))) {
+    res.misc.push({ misc: lm, qty: 1, kept: addMisc(p, lm.id, 1) });
   }
   if (kind === "map") {
     if (Math.random() * 100 < (b.bikipChance || 0)) dropBook(p, [b.bikipTier || "ha"], res.books);
