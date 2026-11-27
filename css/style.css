@@ -251,3 +251,21 @@ input:focus { outline: none; border-color: #f2c230; }
 .pt-row.me { border-color: #4a4f66; }
 .pt-note { font-size: 11px; color: #6a6d76; margin-top: 10px; }
 @media (max-width: 900px) { .pt-cols { grid-template-columns: minmax(0, 1fr); } }
+
+/* ===== bản 2.3: chọn nhân vật, tùy chỉnh ===== */
+.chars-box { width: min(860px, 94vw); }
+.chars-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.chars { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.chslot { background: #1c1e26; border: 1px solid #2e3140; border-radius: 10px; padding: 14px 10px; display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; min-height: 230px; }
+.chslot.empty { border-style: dashed; justify-content: center; }
+.chav { width: 76px; height: 76px; border-radius: 50%; border: 2px solid #3a3d48; background: #15161b; display: flex; align-items: center; justify-content: center; overflow: hidden; color: #666; font-size: 30px; }
+.chav img { width: 100%; height: 100%; object-fit: cover; }
+.chname { color: #fff; font-size: 15px; }
+.chslot .btn { margin-top: 4px; min-width: 120px; }
+.linkbtn { background: none; border: 0; color: #8a8d96; font-size: 12px; text-decoration: underline; cursor: pointer; padding: 2px; }
+.linkbtn:hover { color: #ff9a8a; }
+.opt-cols { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.4fr) minmax(0, 0.8fr); gap: 12px; max-width: 1200px; margin: 0 auto; }
+@media (max-width: 900px) { .chars, .opt-cols { grid-template-columns: minmax(0, 1fr); } }
+.mk-list { grid-template-columns: repeat(auto-fill, minmax(520px, 1fr)); }   /* bản 2.3: dòng Chợ có chỉ số nên cần rộng hơn */
+.mk-row .small { line-height: 1.5; }
+@media (max-width: 700px) { .mk-list { grid-template-columns: minmax(0, 1fr); } }
