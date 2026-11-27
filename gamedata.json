@@ -3,7 +3,7 @@
   "app": "vlyn",
   "kind": "gamedata",
   "version": 2,
-  "updated": 1795749220748
+  "updated": 1795756941879
  },
  "settings": {
   "counterBonus": 15,
@@ -18,19 +18,6 @@
   "skillExtraGemMul": 2,
   "roomDummyHp": 2000000,
   "netRate": 10,
-  "resetRefund": 100,
-  "maxLevel": 99,
-  "expBase": 100,
-  "expPow": 2.2,
-  "mobDropChance": 6,
-  "maxOverLevel": 0,
-  "bikipMaxLv": 3,
-  "mpRegenFlat": 5,
-  "manaShieldRatio": 1,
-  "manaShieldCap": 80,
-  "reflectCap": 50,
-  "rules": "Qua boss map mới mở map kế tiếp. Bí kíp chỉ phái đó đọc được, phái khác bán lấy vàng. Đọc trùng bí kíp để lên cấp (tối đa 3). Skill chuột trái của mọi phái đều theo tốc đánh. Skill chuột phải có hồi chiêu cố định. Mọi phái đeo được mọi trang bị; cầm sai loại vũ khí thì không dùng được skill cần vũ khí đó (xem ô Vũ khí cần cầm ở Kỹ năng), các buff vẫn dùng bình thường. Túi đồ chia 2 ngăn: trang bị (bán được) và vật phẩm (không bán được, mua ở cửa hàng hoặc rơi từ boss). Nâng skill tốn điểm skill và Ngộ Đạo Ngọc; reset skill tốn 1 Hoàn Nguyên Ngọc. Vào đánh boss Hoàng Kim tốn 1 Chiến Thư đúng loại.",
-  "note": "Từng Map từng level phải có số lượng kinh nghiệm + vàng trao máy phù hợp với lev map đó. Sao cho thời gian người chơi lên cấp không quá chậm. Ví dụ người chơi lev 15 train map 1- 10 sẽ lên rất chậm so với người chơi lev 15  đã đánh boss map và  train map 10-20. nói chung cân đối lượng kinh nghiệm và tiền nhận được.",
   "mobGoldMul": 50,
   "mobGoldChance": 70,
   "overLevelExpPer": 5,
@@ -50,7 +37,20 @@
   "bossGapMul": 0.8,
   "rageHpPct": 50,
   "rageGapMul": 0.5,
-  "rageExtraPatterns": 2
+  "rageExtraPatterns": 2,
+  "resetRefund": 100,
+  "maxLevel": 99,
+  "expBase": 100,
+  "expPow": 2.2,
+  "mobDropChance": 6,
+  "maxOverLevel": 0,
+  "bikipMaxLv": 3,
+  "mpRegenFlat": 5,
+  "manaShieldRatio": 1,
+  "manaShieldCap": 80,
+  "reflectCap": 50,
+  "rules": "Qua boss map mới mở map kế tiếp. Bí kíp chỉ phái đó đọc được, phái khác bán lấy vàng. Đọc trùng bí kíp để lên cấp (tối đa 3). Skill chuột trái của mọi phái đều theo tốc đánh. Skill chuột phải có hồi chiêu cố định. Mọi phái đeo được mọi trang bị; cầm sai loại vũ khí thì không dùng được skill cần vũ khí đó (xem ô Vũ khí cần cầm ở Kỹ năng), các buff vẫn dùng bình thường. Túi đồ chia 2 ngăn: trang bị (bán được) và vật phẩm (không bán được, mua ở cửa hàng hoặc rơi từ boss). Nâng skill tốn điểm skill và Ngộ Đạo Ngọc; reset skill tốn 1 Hoàn Nguyên Ngọc. Vào đánh boss Hoàng Kim tốn 1 Chiến Thư đúng loại.",
+  "note": "Từng Map từng level phải có số lượng kinh nghiệm + vàng trao máy phù hợp với lev map đó. Sao cho thời gian người chơi lên cấp không quá chậm. Ví dụ người chơi lev 15 train map 1- 10 sẽ lên rất chậm so với người chơi lev 15  đã đánh boss map và  train map 10-20. nói chung cân đối lượng kinh nghiệm và tiền nhận được."
  },
  "elements": [
   {
@@ -1160,7 +1160,7 @@
    "mech": "twin_sword",
    "maxLv": 10,
    "aspd": 1,
-   "dmg": 75,
+   "dmg": 95,
    "dmgLv": 12,
    "cd": 0,
    "cdLv": 0,
@@ -1200,11 +1200,11 @@
    "mech": "boomerang",
    "maxLv": 10,
    "aspd": 0,
-   "dmg": 50,
-   "dmgLv": 10,
+   "dmg": 88,
+   "dmgLv": 18,
    "cd": 10,
    "cdLv": 0,
-   "mp": 49,
+   "mp": 107,
    "dur": 4,
    "durLv": 0,
    "size": 21,
@@ -1258,11 +1258,15 @@
    "boosts": [
     {
      "attr": "aspd",
-     "per": 12
+     "per": 14
     },
     {
      "attr": "dmg",
-     "per": 6
+     "per": 8
+    },
+    {
+     "attr": "crit",
+     "per": 1
     }
    ],
    "stats": [],
@@ -1312,6 +1316,10 @@
     {
      "attr": "cd",
      "per": -5
+    },
+    {
+     "attr": "critdmg",
+     "per": 10
     }
    ],
    "stats": [],
@@ -1342,7 +1350,7 @@
    "dmgLv": 0,
    "cd": 12,
    "cdLv": 0,
-   "mp": 49,
+   "mp": 149,
    "dur": 8,
    "durLv": 0,
    "size": 0,
@@ -1399,11 +1407,11 @@
    "mech": "orbit",
    "maxLv": 10,
    "aspd": 2,
-   "dmg": 60,
-   "dmgLv": 8,
+   "dmg": 120,
+   "dmgLv": 14,
    "cd": 0,
    "cdLv": 0,
-   "mp": 0,
+   "mp": 21,
    "dur": 0,
    "durLv": 0,
    "size": 70,
@@ -1439,12 +1447,12 @@
    "mech": "bounce",
    "maxLv": 10,
    "aspd": 0,
-   "dmg": 150,
-   "dmgLv": 20,
+   "dmg": 250,
+   "dmgLv": 25,
    "cd": 5,
-   "cdLv": 0,
-   "mp": 35,
-   "dur": 3.5,
+   "cdLv": 0.2,
+   "mp": 70,
+   "dur": 3,
    "durLv": 0,
    "size": 40,
    "sizeLv": 4,
@@ -1494,7 +1502,20 @@
    "effectChance": 0,
    "effectChanceLv": 0,
    "target": "sk_8vfass",
-   "boosts": [],
+   "boosts": [
+    {
+     "attr": "dmg",
+     "per": 10
+    },
+    {
+     "attr": "crit",
+     "per": 4
+    },
+    {
+     "attr": "critdmg",
+     "per": 10
+    }
+   ],
    "stats": [],
    "desc": "Lướt tới kẻ dịch gây sát thương và gây choáng 0.5s nếu trúng",
    "note": "nếu skill chính k đánh tới kẻ dịch thì Lướt tới kẻ dịch gây sát thương và gây choáng 0.5s nếu trúng, Khoảng cách vừa phải ~ 1/5 màn hình. Coldown ~3s. tăng Skill tăng sát thương từ 100-300%  và khoảng cách lướt .Lưu ý đây là bị động. Có nó thì Skill 1 lướt được .",
@@ -1542,6 +1563,10 @@
     {
      "attr": "crit",
      "per": 3
+    },
+    {
+     "attr": "cd",
+     "per": 4
     }
    ],
    "stats": [],
@@ -6212,9 +6237,9 @@
    "note": "",
    "img": "data:image/webp;base64,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",
    "bg": "",
-   "mobHp": 280,
+   "mobHp": 270,
    "mobAtk": 50,
-   "mobExp": 65
+   "mobExp": 257
   },
   {
    "id": "map2",
@@ -6229,7 +6254,7 @@
    "bg": "",
    "mobHp": 560,
    "mobAtk": 160,
-   "mobExp": 245
+   "mobExp": 298
   },
   {
    "id": "map3",
@@ -6244,7 +6269,7 @@
    "bg": "",
    "mobHp": 1180,
    "mobAtk": 140,
-   "mobExp": 285
+   "mobExp": 305
   },
   {
    "id": "map4",
@@ -6259,7 +6284,7 @@
    "bg": "",
    "mobHp": 1720,
    "mobAtk": 180,
-   "mobExp": 300
+   "mobExp": 338
   },
   {
    "id": "map5",
@@ -6274,7 +6299,7 @@
    "bg": "",
    "mobHp": 1520,
    "mobAtk": 170,
-   "mobExp": 320
+   "mobExp": 345
   },
   {
    "id": "map6",
@@ -6289,7 +6314,7 @@
    "bg": "",
    "mobHp": 1820,
    "mobAtk": 200,
-   "mobExp": 330
+   "mobExp": 368
   },
   {
    "id": "map7",
@@ -6304,7 +6329,7 @@
    "bg": "",
    "mobHp": 1330,
    "mobAtk": 220,
-   "mobExp": 310
+   "mobExp": 388
   },
   {
    "id": "map8",
@@ -6319,7 +6344,7 @@
    "bg": "",
    "mobHp": 1970,
    "mobAtk": 245,
-   "mobExp": 355
+   "mobExp": 410
   },
   {
    "id": "map9",
@@ -6334,7 +6359,7 @@
    "bg": "",
    "mobHp": 2140,
    "mobAtk": 200,
-   "mobExp": 345
+   "mobExp": 440
   }
  ],
  "monsters": [
@@ -6343,9 +6368,9 @@
    "map": "map1",
    "name": "Thần Nông Bang Đồ",
    "element": "moc",
-   "hpMul": 100,
-   "atkMul": 100,
-   "expMul": 250,
+   "hpMul": 40,
+   "atkMul": 50,
+   "expMul": 200,
    "effect": "",
    "effectChance": 0,
    "note": "",
@@ -6357,7 +6382,7 @@
    "name": "Thiểm Điện Điêu",
    "element": "moc",
    "hpMul": 70,
-   "atkMul": 120,
+   "atkMul": 80,
    "expMul": 250,
    "effect": "poison",
    "effectChance": 10,
@@ -6369,9 +6394,9 @@
    "map": "map1",
    "name": "Vô Lượng Kiếm Phản Đồ",
    "element": "kim",
-   "hpMul": 110,
+   "hpMul": 90,
    "atkMul": 100,
-   "expMul": 275,
+   "expMul": 300,
    "effect": "",
    "effectChance": 0,
    "note": "",
